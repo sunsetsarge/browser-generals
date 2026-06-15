@@ -1,0 +1,46 @@
+name: Deploy to Firebase Hosting
+
+# Deploys the single-file game to Firebase Hosting on every push to main.
+# This decouples deployment from any one machine, so updates pushed from a
+# phone-dispatched Claude session (or any git client) go live automatically.
+#
+# Requires one repository secret: FIREBASE_TOKEN
+#   Generate locally with:  firebase login:ci
+#   Add at: GitHub repo -> Settings -> Secrets and variables -> Actions -> New repository secret
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:   # also lets you trigger a deploy manually from the GitHub mobile app
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firebase-hosting-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Stage single-file game into public/
+        run: |
+          mkdir -p public
+          cp generals-zero-hour.html public/index.html
+
+      - name: Deploy to Firebase Hosting
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: firebase deploy --only hosting:browser-generals --project claude-5273b --non-interactive

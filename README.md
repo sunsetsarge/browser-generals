@@ -53,7 +53,29 @@ dependencies**. Double-click it, or play the hosted build.
 ```
 
 It only redeploys to Firebase when `generals-zero-hour.html` is newer than the
-last deployed copy, and only commits/pushes when the working tree has changes.
+last deployed copy, and pushes whenever local `main` is ahead of `origin`.
+
+## Continuous deployment (push from anywhere, incl. mobile)
+
+A GitHub Actions workflow ([`.github/workflows/firebase-hosting.yml`](.github/workflows/firebase-hosting.yml))
+deploys to Firebase Hosting on every push to `main`. This means a change pushed
+from **any** machine — including a Claude session dispatched from a phone — goes
+live automatically, without needing this laptop or its local deploy hook.
+
+**One-time setup** — add a single repository secret so the runner can deploy:
+
+1. On a machine with the Firebase CLI, run `firebase login:ci` and copy the token.
+2. In the repo: **Settings → Secrets and variables → Actions → New repository secret**
+   - Name: `FIREBASE_TOKEN`
+   - Value: the token from step 1
+3. Push anything to `main` (or run the workflow manually from the Actions tab).
+
+### Editing from your phone
+
+1. Dispatch a Claude session against `sunsetsarge/browser-generals` from the Claude
+   mobile app / claude.ai.
+2. Describe the change; Claude edits `generals-zero-hour.html` and pushes to `main`.
+3. The Action redeploys Firebase — refresh https://browser-generals.web.app to see it.
 
 ---
 
