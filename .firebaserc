@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "claude-5273b"
+  },
+  "targets": {
+    "claude-5273b": {
+      "hosting": {
+        "browser-generals": [
+          "browser-generals"
+        ]
+      }
+    }
+  }
+}

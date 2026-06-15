@@ -1,0 +1,13 @@
+{
+  "hosting": {
+    "site": "browser-generals",
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "generals-zero-hour.html",
+      "deploy.ps1"
+    ]
+  }
+}
