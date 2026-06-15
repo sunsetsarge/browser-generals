@@ -32,12 +32,21 @@ if ($needsDeploy) {
 
 # ---- 2. GitHub --------------------------------------------------------------
 if (-not (Test-Path (Join-Path $root '.git'))) { Write-Host 'No git repo; skipping push.'; exit 0 }
+# Commit any working-tree changes.
 $dirty = git status --porcelain
-if ([string]::IsNullOrWhiteSpace($dirty)) { Write-Host 'GitHub: working tree clean, nothing to push.'; exit 0 }
-git add -A
-$stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-git commit -m "Sync game and deploy ($stamp)" | Out-Null
-if ($LASTEXITCODE -ne 0) { Write-Error "git commit failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
-git push origin HEAD
-if ($LASTEXITCODE -ne 0) { Write-Error "git push failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
-Write-Host 'Pushed to https://github.com/sunsetsarge/browser-generals'
+if (-not [string]::IsNullOrWhiteSpace($dirty)) {
+  git add -A
+  $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+  git commit -m "Sync game and deploy ($stamp)" | Out-Null
+  if ($LASTEXITCODE -ne 0) { Write-Error "git commit failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
+}
+# Push whenever local is ahead of its upstream (covers commits an earlier run
+# made but failed to push), not just when we committed this run.
+$ahead = git rev-list --count '@{u}..HEAD' 2>$null
+if ($ahead -and [int]$ahead -gt 0) {
+  git push origin HEAD
+  if ($LASTEXITCODE -ne 0) { Write-Error "git push failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
+  Write-Host "Pushed $ahead commit(s) to https://github.com/sunsetsarge/browser-generals"
+} else {
+  Write-Host 'GitHub: up to date, nothing to push.'
+}
