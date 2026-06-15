@@ -2,13 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#161a10">
 <title>Browser Generals — Zero Hour Tribute</title>
 <style>
 :root{--panel:rgba(18,21,14,.92);--border:#4a5238;--gold:#e8c060;--text:#d8dcc8;--green:#7ec850;--red:#e05545;}
-*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;}
-html,body{width:100%;height:100%;overflow:hidden;background:#0a0c08;font-family:'Segoe UI',Arial,sans-serif;color:var(--text);}
-#game{position:absolute;inset:0;cursor:crosshair;}
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0c08;font-family:'Segoe UI',Arial,sans-serif;color:var(--text);position:fixed;inset:0;touch-action:none;overscroll-behavior:none;-webkit-text-size-adjust:100%;}
+#game{position:absolute;inset:0;cursor:crosshair;touch-action:none;}
 #topbar{position:absolute;top:0;left:0;right:0;height:40px;display:flex;align-items:center;gap:18px;padding:0 14px;background:linear-gradient(#2a2f20,#161a10);border-bottom:2px solid var(--border);font-size:15px;z-index:10;}
 #topbar .stat b{color:var(--gold);font-variant-numeric:tabular-nums;}
 #tbFaction{font-weight:700;letter-spacing:1px;}
@@ -50,7 +54,36 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0c08;font-family:
 #endScreen .stats{font-size:15px;color:#b9c0a4;text-align:center;line-height:1.8;}
 #helpBox{position:absolute;left:12px;bottom:12px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:12px;line-height:1.7;z-index:40;max-width:340px;}
 #helpBox b{color:var(--gold);}
-.foot{position:absolute;bottom:8px;font-size:11px;color:#6b745a;}
+.foot{position:absolute;bottom:8px;font-size:11px;color:#6b745a;text-align:center;padding:0 10px;}
+/* on-screen touch controls + drawer toggle (hidden on desktop) */
+#mobileControls{position:absolute;left:calc(8px + env(safe-area-inset-left));bottom:calc(10px + env(safe-area-inset-bottom));z-index:45;display:none;flex-direction:column;gap:10px;}
+#mobileControls button{width:58px;height:58px;border-radius:50%;border:2px solid var(--border);background:rgba(20,24,15,.86);color:var(--text);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-direction:column;line-height:1.05;cursor:pointer;backdrop-filter:blur(2px);}
+#mobileControls button .mci{font-size:20px;}
+#mobileControls button.on{border-color:var(--gold);color:var(--gold);box-shadow:0 0 10px #e8c06088;}
+#btnPanel{display:none;}
+#sideClose{display:none;position:absolute;top:6px;right:8px;width:34px;height:34px;border-radius:6px;background:#2e3424;border:1px solid var(--border);color:var(--text);font-size:18px;z-index:2;cursor:pointer;}
+#topbar{padding-top:env(safe-area-inset-top);height:calc(40px + env(safe-area-inset-top));padding-left:calc(14px + env(safe-area-inset-left));}
+/* === mobile layout === */
+body.mobile #topbar{gap:9px;font-size:13px;padding-left:calc(8px + env(safe-area-inset-left));padding-right:8px;}
+body.mobile #topbar .tbLabel{display:none;}
+body.mobile #topbar button{padding:4px 8px;font-size:16px;min-width:34px;}
+body.mobile #tbFaction{max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;}
+body.mobile #btnPanel{display:inline-flex;}
+body.mobile #mobileControls{display:flex;}
+body.mobile #sidebar{top:0;bottom:0;width:min(86vw,330px);transform:translateX(100%);transition:transform .22s ease;box-shadow:-6px 0 22px #000b;padding-top:calc(46px + env(safe-area-inset-top));z-index:60;}
+body.mobile #sidebar.open{transform:none;}
+body.mobile #sideClose{display:block;top:calc(8px + env(safe-area-inset-top));}
+body.mobile .bbtn{min-height:66px;}
+body.mobile .bbtn .nm{font-size:10px;}
+body.mobile #minimap{width:100%;height:auto;aspect-ratio:1;}
+body.mobile .ov{overflow-y:auto;justify-content:flex-start;padding:max(18px,env(safe-area-inset-top)) 14px 30px;gap:14px;}
+body.mobile #startScreen h1{font-size:30px;letter-spacing:2px;margin-top:8px;}
+body.mobile .cards{flex-direction:column;width:100%;max-width:420px;}
+body.mobile .card{width:100%;}
+body.mobile .card:hover{transform:none;}
+body.mobile #endScreen h1{font-size:34px;}
+body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-area-inset-top));max-width:none;font-size:11.5px;}
+@media (max-width:520px){ body.mobile .diffRow{flex-wrap:wrap;justify-content:center;} }
 </style>
 </head>
 <body>
@@ -65,8 +98,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0c08;font-family:
   <button id="btnMute" title="Mute (M)">🔊</button>
   <button id="btnPause" title="Pause (P)">⏸</button>
   <button id="btnHelp" title="Help (H)">❓</button>
+  <button id="btnPanel" title="Build menu">🏗️</button>
+</div>
+<div id="mobileControls">
+  <button id="btnTAttack" title="Attack-move"><span class="mci">⚔️</span>ATK</button>
+  <button id="btnTStop" title="Stop"><span class="mci">✋</span>STOP</button>
+  <button id="btnTDesel" title="Deselect"><span class="mci">✖️</span>CLR</button>
 </div>
 <div id="sidebar" class="hidden">
+  <button id="sideClose" title="Close">✕</button>
   <canvas id="minimap" width="216" height="216"></canvas>
   <div class="sideTitle">STRUCTURES</div>
   <div id="buildGrid" class="grid"></div>
@@ -122,7 +162,7 @@ function angLerp(a,b,t){let d=((b-a+Math.PI)%TAU+TAU)%TAU-Math.PI;return a+d*Mat
 
 /* ================= AUDIO ================= */
 let AC=null, muted=false, sfxBudget=8;
-function audioInit(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } }
+function audioInit(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } if(AC&&AC.state==='suspended'){ try{AC.resume();}catch(e){} } }
 function sfx(kind){
   if(muted||!AC||sfxBudget<=0) return; sfxBudget--;
   const t=AC.currentTime, g=AC.createGain(); g.connect(AC.destination);
@@ -807,8 +847,19 @@ function aiTick(){
 
 /* ================= INPUT ================= */
 const canvas=document.getElementById('game'), ctx=canvas.getContext('2d');
-function resize(){ canvas.width=innerWidth; canvas.height=innerHeight; }
+const IS_TOUCH = (matchMedia('(pointer:coarse)').matches) || ('ontouchstart' in window) || navigator.maxTouchPoints>0;
+let mobileLayout=false;
+function computeLayout(){
+  mobileLayout = IS_TOUCH || innerWidth<820;
+  document.body.classList.toggle('mobile',mobileLayout);
+}
+function uiSidebar(){ return mobileLayout?0:SIDEBAR; }
+function setDrawer(open){ document.getElementById('sidebar').classList.toggle('open',open); }
+function resize(){ canvas.width=innerWidth; canvas.height=innerHeight; computeLayout();
+  if(G.state==='play'){ G.cam.x=clamp(G.cam.x,0,Math.max(0,WW-innerWidth+uiSidebar())); G.cam.y=clamp(G.cam.y,0,Math.max(0,WH-innerHeight+TOPBAR)); } }
+computeLayout();
 addEventListener('resize',resize); resize();
+addEventListener('orientationchange',()=>setTimeout(resize,250));
 function toWorld(sx,sy){ return {x:sx+G.cam.x,y:sy+G.cam.y}; }
 function entAt(wx,wy){
   let best=null,bd=1e9;
@@ -913,6 +964,86 @@ canvas.addEventListener('contextmenu',e=>e.preventDefault());
 addEventListener('mouseout',()=>{G.mouse.inside=false;});
 addEventListener('mouseover',()=>{G.mouse.inside=true;});
 
+/* ---- touch controls (mobile / iOS) ----
+   tap = select / command · drag = pan camera · hold-then-drag = box select.
+   While placing a structure or in attack-move mode, drag aims and release commits. */
+const touch={active:false,id:null,x0:0,y0:0,x:0,y:0,mode:'',lp:null};
+let lastTapT=0,lastTapX=0,lastTapY=0;
+function getTouch(e,id){ for(const c of e.changedTouches) if(c.identifier===id) return c; return null; }
+canvas.addEventListener('touchstart',e=>{
+  audioInit();
+  if(G.state!=='play') return;
+  e.preventDefault();
+  if(touch.active) return;            // ignore extra fingers
+  const t=e.changedTouches[0];
+  touch.active=true; touch.id=t.identifier;
+  touch.x0=touch.x=t.clientX; touch.y0=touch.y=t.clientY;
+  G.mouse.sx=t.clientX; G.mouse.sy=t.clientY;
+  if(G.placing){ touch.mode='place'; return; }
+  if(G.amoveMode){ touch.mode='amove'; return; }
+  touch.mode='pending';
+  clearTimeout(touch.lp);
+  touch.lp=setTimeout(()=>{
+    if(touch.active&&touch.mode==='pending'){
+      touch.mode='box';
+      G.drag={x0:touch.x0,y0:touch.y0,x1:touch.x,y1:touch.y,moved:true,touch:true};
+      if(navigator.vibrate) navigator.vibrate(12);
+    }
+  },240);
+},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+  if(!touch.active) return; e.preventDefault();
+  const t=getTouch(e,touch.id); if(!t) return;
+  const dx=t.clientX-touch.x, dy=t.clientY-touch.y;
+  touch.x=t.clientX; touch.y=t.clientY;
+  G.mouse.sx=t.clientX; G.mouse.sy=t.clientY;
+  if(touch.mode==='pending'&&Math.abs(t.clientX-touch.x0)+Math.abs(t.clientY-touch.y0)>12){
+    touch.mode='pan'; clearTimeout(touch.lp);
+  }
+  if(touch.mode==='pan'){
+    G.cam.x=clamp(G.cam.x-dx,0,Math.max(0,WW-innerWidth+uiSidebar()));
+    G.cam.y=clamp(G.cam.y-dy,0,Math.max(0,WH-innerHeight+TOPBAR));
+  } else if(touch.mode==='box'&&G.drag){ G.drag.x1=t.clientX; G.drag.y1=t.clientY; }
+},{passive:false});
+function endTouch(e){
+  if(!touch.active) return;
+  const t=getTouch(e,touch.id); if(!t) return;
+  e.preventDefault(); clearTimeout(touch.lp);
+  const mode=touch.mode; touch.active=false;
+  if(G.state!=='play'){ G.drag=null; return; }
+  const w=toWorld(t.clientX,t.clientY);
+  if(mode==='box'&&G.drag){
+    const a=toWorld(G.drag.x0,G.drag.y0), b=toWorld(G.drag.x1,G.drag.y1); G.drag=null;
+    selectRect(a.x,a.y,b.x,b.y,false); return;
+  }
+  G.drag=null;
+  if(mode==='pan') return;
+  if(mode==='place'){ const def=G.placing; if(def){ const tx=Math.floor(w.x/TILE-def.size/2+0.5), ty=Math.floor(w.y/TILE-def.size/2+0.5);
+      if(tryPlaceAt(def,tx,ty,0)){ sfx('click'); G.placing=null; } } return; }
+  if(mode==='amove'){ issueAMove(w.x,w.y); G.amoveMode=false; syncMobileBtns(); return; }
+  touchTap(w.x,w.y,t.clientX,t.clientY);
+}
+canvas.addEventListener('touchend',endTouch,{passive:false});
+canvas.addEventListener('touchcancel',()=>{ touch.active=false; clearTimeout(touch.lp); G.drag=null; },{passive:false});
+function touchTap(wx,wy,sx,sy){
+  const ent=entAt(wx,wy);
+  const now=performance.now();
+  const dbl=(now-lastTapT<340&&Math.abs(sx-lastTapX)<30&&Math.abs(sy-lastTapY)<30);
+  lastTapT=now; lastTapX=sx; lastTapY=sy;
+  const haveOwn=G.sel.some(e=>!e.dead&&e.owner===0&&e.kind==='unit');
+  if(ent&&ent.owner===0){
+    if(dbl&&ent.kind==='unit'){ // double-tap own unit → select all of that type on screen
+      const k=ent.def.k; clearSel();
+      for(const u of G.units) if(!u.dead&&u.owner===0&&u.def.k===k&&u.x>G.cam.x&&u.x<G.cam.x+innerWidth&&u.y>G.cam.y&&u.y<G.cam.y+innerHeight) G.sel.push(u);
+      if(!G.sel.length) G.sel=[ent]; sfx('click'); return;
+    }
+    clearSel(); G.sel=[ent]; sfx('click'); return;
+  }
+  if(haveOwn){ issueCommand(wx,wy); return; }   // command: move/attack/harvest
+  if(ent){ clearSel(); G.sel=[ent]; sfx('click'); return; } // inspect enemy/neutral
+  clearSel();
+}
+
 let lastGroupKey='',lastGroupT=0;
 addEventListener('keydown',e=>{
   if(G.state!=='play') return;
@@ -931,7 +1062,7 @@ addEventListener('keydown',e=>{
       if(g.length){ G.sel=[...g];
         if(lastGroupKey===e.key&&performance.now()-lastGroupT<400){
           const cx=g.reduce((s,u)=>s+u.x,0)/g.length, cy=g.reduce((s,u)=>s+u.y,0)/g.length;
-          G.cam.x=cx-(innerWidth-SIDEBAR)/2; G.cam.y=cy-innerHeight/2;
+          G.cam.x=cx-(innerWidth-uiSidebar())/2; G.cam.y=cy-innerHeight/2;
         }
         lastGroupKey=e.key; lastGroupT=performance.now();
       }
@@ -941,6 +1072,7 @@ addEventListener('keydown',e=>{
 });
 addEventListener('keyup',e=>{G.keys[e.key.toLowerCase()]=false;});
 function toggleMute(){ muted=!muted; document.getElementById('btnMute').textContent=muted?'🔇':'🔊'; }
+function syncMobileBtns(){ const b=document.getElementById('btnTAttack'); if(b) b.classList.toggle('on',G.amoveMode); }
 /* ================= RENDERING ================= */
 function ownerColor(e){ return facOf(e.owner).color; }
 function drawUnit(c,u){
@@ -1130,7 +1262,7 @@ function renderMini(){
   for(const p of G.pings){ mctx.strokeStyle='rgba(255,60,40,'+clamp(p.t,0,1)+')'; mctx.lineWidth=1.5;
     mctx.beginPath(); mctx.arc(p.x*MSC,p.y*MSC,(2-p.t)*9,0,TAU); mctx.stroke(); }
   mctx.strokeStyle='#fff'; mctx.lineWidth=1;
-  mctx.strokeRect(G.cam.x*MSC,G.cam.y*MSC,(innerWidth-SIDEBAR)*MSC,innerHeight*MSC);
+  mctx.strokeRect(G.cam.x*MSC,G.cam.y*MSC,(innerWidth-uiSidebar())*MSC,innerHeight*MSC);
 }
 let miniDrag=false;
 function miniWorld(e){
@@ -1139,7 +1271,8 @@ function miniWorld(e){
 }
 function miniCam(e){
   const w=miniWorld(e);
-  G.cam.x=w.x-(innerWidth-SIDEBAR)/2; G.cam.y=w.y-innerHeight/2;
+  G.cam.x=clamp(w.x-(innerWidth-uiSidebar())/2,0,Math.max(0,WW-innerWidth+uiSidebar()));
+  G.cam.y=clamp(w.y-innerHeight/2,0,Math.max(0,WH-innerHeight+TOPBAR));
 }
 mini.addEventListener('mousedown',e=>{
   if(G.state!=='play') return;
@@ -1149,6 +1282,9 @@ mini.addEventListener('mousedown',e=>{
 addEventListener('mousemove',e=>{ if(miniDrag) miniCam(e); });
 addEventListener('mouseup',()=>{ miniDrag=false; });
 mini.addEventListener('contextmenu',e=>e.preventDefault());
+mini.addEventListener('touchstart',e=>{ if(G.state!=='play')return; e.preventDefault(); e.stopPropagation(); miniDrag=true; miniCam(e.changedTouches[0]); },{passive:false});
+mini.addEventListener('touchmove',e=>{ if(!miniDrag)return; e.preventDefault(); e.stopPropagation(); miniCam(e.changedTouches[0]); },{passive:false});
+mini.addEventListener('touchend',e=>{ miniDrag=false; e.preventDefault(); e.stopPropagation(); },{passive:false});
 /* ================= SIDEBAR / HUD ================= */
 const $=id=>document.getElementById(id);
 const btnRefs={build:{},unit:{}};
@@ -1179,7 +1315,7 @@ function mkBtn(def,isUnit){
         const idx=bl.queue.lastIndexOf(def);
         if(idx>=0){ bl.queue.splice(idx,1); if(idx===0)bl.qProg=0; addMoney(0,def.cost); sfx('click'); return; } } };
   } else {
-    b.onclick=()=>{ G.placing=(G.placing===def)?null:def; sfx('click'); };
+    b.onclick=()=>{ G.placing=(G.placing===def)?null:def; if(mobileLayout&&G.placing) setDrawer(false); sfx('click'); };
   }
   return b;
 }
@@ -1254,8 +1390,8 @@ function startGame(facKey,diffKey){
   placeBase(0,P_BASE,G.pFac);
   placeBase(1,A_BASE,G.aFac);
   fogExp.fill(0); fogVis.fill(0); updateFog();
-  G.cam.x=clamp(P_BASE.tx*TILE-(innerWidth-SIDEBAR)/2,0,Math.max(0,WW-innerWidth+SIDEBAR));
-  G.cam.y=clamp(P_BASE.ty*TILE-innerHeight/2,0,Math.max(0,WH-innerHeight));
+  G.cam.x=clamp(P_BASE.tx*TILE-(innerWidth-uiSidebar())/2,0,Math.max(0,WW-innerWidth+uiSidebar()));
+  G.cam.y=clamp(P_BASE.ty*TILE-innerHeight/2,0,Math.max(0,WH-innerHeight+TOPBAR));
   buildSidebar();
   $('tbFaction').textContent=G.pFac.name+' vs '+G.aFac.name;
   $('tbFaction').style.color=G.pFac.color;
@@ -1289,7 +1425,7 @@ function update(dt){
     if(G.mouse.sx<14)G.cam.x-=sp; if(G.mouse.sx>innerWidth-14)G.cam.x+=sp;
     if(G.mouse.sy<14)G.cam.y-=sp; if(G.mouse.sy>innerHeight-14)G.cam.y+=sp;
   }
-  G.cam.x=clamp(G.cam.x,0,Math.max(0,WW-innerWidth+SIDEBAR));
+  G.cam.x=clamp(G.cam.x,0,Math.max(0,WW-innerWidth+uiSidebar()));
   G.cam.y=clamp(G.cam.y,0,Math.max(0,WH-innerHeight+TOPBAR));
   G.shake=Math.max(0,G.shake-dt*14);
   // AI income
@@ -1352,6 +1488,24 @@ let chosenFac=null, chosenDiff='normal';
   $('btnMute').onclick=toggleMute;
   $('btnPause').onclick=()=>{ G.paused=!G.paused; $('btnPause').textContent=G.paused?'▶':'⏸'; };
   $('btnHelp').onclick=()=>$('helpBox').classList.toggle('hidden');
+  // mobile / touch wiring
+  $('btnPanel').onclick=()=>{ setDrawer(!$('sidebar').classList.contains('open')); sfx('click'); };
+  $('sideClose').onclick=()=>{ setDrawer(false); sfx('click'); };
+  $('btnTAttack').onclick=()=>{ if(G.sel.some(s=>s.kind==='unit'&&s.owner===0&&!s.def.harv)) G.amoveMode=!G.amoveMode; else G.amoveMode=false; syncMobileBtns(); sfx('click'); };
+  $('btnTStop').onclick=()=>{ for(const u of G.sel) if(u.kind==='unit'&&u.owner===0){ u.order={t:'idle'}; u.dest=null; u.path=null; u.tmpTg=null; u.ax=u.x; u.ay=u.y; } G.amoveMode=false; syncMobileBtns(); sfx('click'); };
+  $('btnTDesel').onclick=()=>{ clearSel(); G.amoveMode=false; G.placing=null; syncMobileBtns(); sfx('click'); };
+  if(IS_TOUCH){
+    $('helpBox').innerHTML='<b>TOUCH CONTROLS</b><br>'+
+      'Tap — select, or give an order (move / attack / harvest)<br>'+
+      'Drag — pan the map · Hold then drag — box-select your army<br>'+
+      'Double-tap a unit — select all of its type on screen<br>'+
+      '<b>🏗️</b> (top bar) — open build menu; tap a structure then tap the map to place it<br>'+
+      '<b>⚔️ATK</b> attack-move · <b>✋STOP</b> stop · <b>✖️CLR</b> deselect<br>'+
+      'Tap or drag the minimap to jump around. Keep ⚡ power positive (GLA needs none). '+
+      'Destroy every enemy structure to win.';
+    const foot=document.querySelector('#startScreen .foot');
+    if(foot) foot.textContent='Tap select · drag to pan · hold+drag to box-select · 🏗️ build menu · tap minimap to scout';
+  }
 })();
 </script>
 </body>
