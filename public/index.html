@@ -88,6 +88,20 @@ body.mobile .card:hover{transform:none;}
 body.mobile #endScreen h1{font-size:34px;}
 body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-area-inset-top));max-width:none;font-size:11.5px;}
 @media (max-width:520px){ body.mobile .diffRow{flex-wrap:wrap;justify-content:center;} }
+/* debug panel */
+#btnDbg.on{border-color:var(--gold);color:var(--gold);}
+#dbgPanel{position:absolute;top:46px;left:10px;width:286px;max-height:calc(100% - 120px);overflow-y:auto;background:var(--panel);border:1px solid var(--gold);border-radius:8px;padding:8px 10px;z-index:56;font-size:12px;box-shadow:0 6px 22px #000a;}
+#dbgPanel .dbgHead{display:flex;justify-content:space-between;align-items:center;color:var(--gold);font-weight:700;letter-spacing:1px;margin-bottom:4px;}
+#dbgPanel .dbgSec{font-size:10px;letter-spacing:1px;color:#9aa37f;border-bottom:1px solid var(--border);margin:8px 0 3px;padding-bottom:1px;}
+#dbgPanel .dbgRow{display:flex;align-items:center;gap:6px;margin:4px 0;flex-wrap:wrap;}
+#dbgPanel label{min-width:96px;color:#b9c0a4;}
+#dbgPanel button{background:#2e3424;color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 7px;cursor:pointer;font-size:11px;}
+#dbgPanel button:hover{background:#3c4430;}
+#dbgPanel button.on{border-color:var(--gold);color:var(--gold);}
+#dbgPanel input[type=range]{flex:1;min-width:80px;}
+#dbgPanel select{flex:1;min-width:120px;background:#252b1b;color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px;}
+#dbgPanel input[type=number]{width:84px;background:#252b1b;color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 4px;}
+#dbgClose{padding:0 7px;font-size:14px;}
 </style>
 </head>
 <body>
@@ -102,7 +116,27 @@ body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-are
   <button id="btnMute" title="Mute (M)">🔊</button>
   <button id="btnPause" title="Pause (P)">⏸</button>
   <button id="btnHelp" title="Help (H)">❓</button>
+  <button id="btnDbg" title="Debug panel">🐞</button>
   <button id="btnPanel" title="Build menu">🏗️</button>
+</div>
+<div id="dbgPanel" class="hidden">
+  <div class="dbgHead">🐞 DEBUG <button id="dbgClose">✕</button></div>
+  <div class="dbgSec">CASH</div>
+  <div class="dbgRow"><button data-cash="10000">+$10k</button><button data-cash="100000">+$100k</button><button data-cash="-99999999">Empty</button>
+    <input id="dbgCashIn" type="number" placeholder="set $"><button id="dbgCashSet">Set</button></div>
+  <div class="dbgSec">SPAWN UNIT</div>
+  <div class="dbgRow"><select id="dbgUnit"></select></div>
+  <div class="dbgRow"><label>Qty <span id="dbgQtyV">1</span></label><input id="dbgQty" type="range" min="1" max="20" value="1">
+    <button id="dbgOwner">Owner: Me</button><button id="dbgSpawn">Spawn</button></div>
+  <div class="dbgSec">PLAYER MODIFIERS (×)</div>
+  <div class="dbgRow"><label>Damage <span id="dbgDmgV">1.0</span></label><input data-mod="dmg" type="range" min="0.1" max="10" step="0.1" value="1"></div>
+  <div class="dbgRow"><label>Range <span id="dbgRngV">1.0</span></label><input data-mod="rng" type="range" min="0.1" max="5" step="0.1" value="1"></div>
+  <div class="dbgRow"><label>Health <span id="dbgHpV">1.0</span></label><input data-mod="hp" type="range" min="0.1" max="10" step="0.1" value="1"></div>
+  <div class="dbgRow"><label>Fire rate <span id="dbgFireRateV">1.0</span></label><input data-mod="fireRate" type="range" min="0.2" max="10" step="0.1" value="1"></div>
+  <div class="dbgRow"><label>XP rate <span id="dbgXpRateV">1.0</span></label><input data-mod="xpRate" type="range" min="1" max="20" step="1" value="1"></div>
+  <div class="dbgSec">ACTIONS / TOGGLES</div>
+  <div class="dbgRow"><button id="dbgMaxXp">Max XP (selected)</button><button id="dbgHeal">Heal (selected)</button></div>
+  <div class="dbgRow"><button id="dbgReveal">Reveal map</button><button id="dbgGod">God mode</button><button id="dbgWin">Win</button></div>
 </div>
 <div id="mobileControls">
   <button id="btnTAttack" title="Attack-move"><span class="mci">⚔️</span>ATK</button>
@@ -266,7 +300,7 @@ CHINA:{key:'CHINA',name:'China',color:'#e0524f',dark:'#6e2423',
   {k:'inferno',n:'Inferno Cannon',i:'☄️',cls:'art',cost:1100,t:13,hp:220,sp:55,ar:'light',r:14,sight:350,src:'factory',w:{type:'flame',dmg:95,rng:330,cd:3.6,aoe:50,sp:200}},
   {k:'mig',n:'MiG Fighter',i:'✈️',cls:'jet',cost:1300,t:13,hp:220,sp:200,ar:'air',r:12,sight:280,src:'air',air:true,w:{type:'rocket',dmg:80,rng:180,cd:2,aa:true,sp:400}},
   {k:'helix',n:'Helix',i:'🚁',cls:'heli',cost:1700,t:16,hp:500,sp:105,ar:'air',r:14,sight:260,src:'air',air:true,w:{type:'bullet',dmg:16,rng:170,cd:.18,aa:true}},
-  {k:'lotus',n:'Black Lotus',i:'🌸',cls:'inf',cost:1500,t:14,hp:260,sp:85,ar:'inf',r:8,sight:300,src:'barracks',hero:true,w:{type:'sniper',dmg:70,rng:190,cd:1.0}},
+  {k:'lotus',n:'Nightshade',i:'🥀',cls:'inf',cost:1500,t:14,hp:260,sp:85,ar:'inf',r:8,sight:300,src:'barracks',hero:true,w:{type:'sniper',dmg:70,rng:190,cd:1.0}},
   {k:'nukecannon',n:'Nuke Cannon',i:'☢️',cls:'art',cost:1600,t:16,hp:260,sp:48,ar:'light',r:15,sight:380,src:'factory',w:{type:'blast',dmg:120,rng:360,cd:4.2,aoe:70,sp:200}},
   {k:'truck',n:'Supply Truck',i:'📦',cls:'truck',cost:400,t:8,hp:260,sp:95,ar:'light',r:13,sight:180,src:'supply',harv:{cap:300}},
  ]},
@@ -296,7 +330,7 @@ GLA:{key:'GLA',name:'GLA',color:'#b5a642',dark:'#5a531f',
   {k:'buggy',n:'Rocket Buggy',i:'🏎️',cls:'truck',cost:900,t:10,hp:180,sp:150,ar:'light',r:12,sight:300,src:'factory',w:{type:'rocket',dmg:22,rng:300,cd:.55,sp:330}},
   {k:'toxin',n:'Toxin Tractor',i:'☣️',cls:'truck',cost:600,t:8,hp:340,sp:82,ar:'light',r:13,sight:200,src:'factory',w:{type:'flame',dmg:10,rng:125,cd:.25,aoe:24}},
   {k:'scud',n:'SCUD Launcher',i:'☄️',cls:'art',cost:1300,t:15,hp:250,sp:50,ar:'light',r:15,sight:370,src:'factory',w:{type:'blast',dmg:150,rng:360,cd:5,aoe:75,sp:170}},
-  {k:'jarmen',n:'Jarmen Kell',i:'🎯',cls:'inf',cost:1200,t:13,hp:220,sp:80,ar:'inf',r:8,sight:340,src:'barracks',hero:true,w:{type:'sniper',dmg:110,rng:300,cd:2.2}},
+  {k:'jarmen',n:'Deadeye',i:'🎯',cls:'inf',cost:1200,t:13,hp:220,sp:80,ar:'inf',r:8,sight:340,src:'barracks',hero:true,w:{type:'sniper',dmg:110,rng:300,cd:2.2}},
   {k:'bombtruck',n:'Bomb Truck',i:'💣',cls:'truck',cost:800,t:9,hp:260,sp:120,ar:'light',r:13,sight:200,src:'factory',suicide:{dmg:340,aoe:90}},
   {k:'cycle',n:'Combat Cycle',i:'🏍️',cls:'truck',cost:300,t:4,hp:140,sp:170,ar:'light',r:11,sight:240,src:'barracks',w:{type:'bullet',dmg:9,rng:140,cd:.4}},
   {k:'worker',n:'Worker',i:'👷',cls:'inf',cost:300,t:6,hp:110,sp:75,ar:'inf',r:8,sight:170,src:'supply',harv:{cap:250}},
@@ -308,6 +342,10 @@ const DIFFS={
   normal:{income:3, wave:4000, interval:95,  aiStart:5000, grace:200},
   hard:  {income:8, wave:7000, interval:70,  aiStart:8000, grace:120},
 };
+
+/* ================= DEBUG ================= */
+// multipliers apply to the PLAYER's units (owner 0); toggles are global cheats
+const DBG={dmg:1, rng:1, hp:1, fireRate:1, xpRate:1, god:false, reveal:false, spawnOwner:0, qty:1};
 
 /* ================= VETERANCY & PERKS ================= */
 // kills needed for chevron 1 / 2 / 3 (increasing); index = vet level 0..3 -> stat multiplier
@@ -324,11 +362,13 @@ const perkLvl=(o,k)=>(G.perks[o]&&G.perks[o][k])||0;
 function perkPrice(p,o){ return p.base+perkLvl(o,p.k)*p.step; }
 function perkMul(o,k,per){ return 1+per*perkLvl(o,k); }
 // effective per-unit stats (veterancy × faction perks); units only — buildings use base stats
-function unitDmg(u){ const w=u.def.w; return w?w.dmg*VET_DMG[u.vet||0]*perkMul(u.owner,'weapons',0.12):0; }
-function unitRng(u){ const w=u.def.w; return w?w.rng*VET_RNG[u.vet||0]*perkMul(u.owner,'optics',0.10):0; }
+function dbgMul(u,key){ return u.owner===0?DBG[key]:1; }   // debug multipliers cheat the player only
+function unitDmg(u){ const w=u.def.w; return w?w.dmg*VET_DMG[u.vet||0]*perkMul(u.owner,'weapons',0.12)*dbgMul(u,'dmg'):0; }
+function unitRng(u){ const w=u.def.w; return w?w.rng*VET_RNG[u.vet||0]*perkMul(u.owner,'optics',0.10)*dbgMul(u,'rng'):0; }
 function unitSight(u){ return u.def.sight*VET_SIGHT[u.vet||0]*perkMul(u.owner,'optics',0.18); }
 function unitSpeed(u){ return u.def.sp*perkMul(u.owner,'drill',0.10); }
-function unitHpMax(u){ return Math.round(u.def.hp*VET_HP[u.vet||0]*perkMul(u.owner,'armor',0.15)); }
+function unitCd(u){ return u.def.w.cd/(u.owner===0?DBG.fireRate:1); }
+function unitHpMax(u){ return Math.round(u.def.hp*VET_HP[u.vet||0]*perkMul(u.owner,'armor',0.15)*dbgMul(u,'hp')); }
 function checkPromote(u){
   if(u.def.harv) return;
   const fast=perkLvl(u.owner,'drill')>0?0.7:1;
@@ -465,8 +505,9 @@ function revealCircle(wx,wy,radPx){
   }
 }
 function updateFog(){
+  if(DBG.reveal){ fogVis.fill(1); fogExp.fill(1); const im=fogCtx.createImageData(MW,MH); fogCtx.putImageData(im,0,0); return; }
   fogVis.fill(0);
-  for(const u of G.units) if(u.owner===0&&!u.dead) revealCircle(u.x,u.y,u.def.sight);
+  for(const u of G.units) if(u.owner===0&&!u.dead) revealCircle(u.x,u.y,unitSight(u));
   for(const b of G.buildings) if(b.owner===0&&!b.dead) revealCircle(b.x,b.y,b.done?340:200);
   const img=fogCtx.createImageData(MW,MH), d=img.data;
   for(let i=0;i<MW*MH;i++){ const o=i*4; d[o]=4;d[o+1]=6;d[o+2]=3; d[o+3]=fogVis[i]?0:(fogExp[i]?115:255); }
@@ -579,6 +620,7 @@ function canHit(att,e){
 }
 function dealDamage(e,raw,wtype,srcEnt){
   if(e.dead) return;
+  if(DBG.god&&e.owner===0) return;   // debug: player units invulnerable
   const mult=e.air?DMG[wtype].air:DMG[wtype][e.armor];
   e.hp-=raw*mult*rand(.85,1.15); e.flash=.12;
   if(e.hp<=0){ killEnt(e,srcEnt); return; }
@@ -595,8 +637,8 @@ function killEnt(e,srcEnt){
     if(e.owner===1)G.stats.razed++; }
   else { explosion(e.x,e.y,e.air?22:e.r*1.6);
     if(e.owner===0)G.stats.lost++; else if(srcEnt&&srcEnt.owner===0)G.stats.kills++; }
-  // veterancy: the killer earns a kill toward its next chevron
-  if(srcEnt&&srcEnt.kind==='unit'&&!srcEnt.dead&&!srcEnt.def.harv){ srcEnt.kills++; checkPromote(srcEnt); }
+  // veterancy: the killer earns a kill toward its next chevron (debug xpRate boosts the player)
+  if(srcEnt&&srcEnt.kind==='unit'&&!srcEnt.dead&&!srcEnt.def.harv){ srcEnt.kills+=(srcEnt.owner===0?DBG.xpRate:1); checkPromote(srcEnt); }
 }
 function splashDamage(x,y,w,owner,srcEnt){
   const r=w.aoe;
@@ -670,7 +712,7 @@ function engage(u,tg,dt){
   if(d<=rng){
     u.dest=null; u.path=null;
     u.face=angLerp(u.face,Math.atan2(tg.y-u.y,tg.x-u.x),dt*10);
-    if(u.cd<=0){ fire(u,tg); u.cd=w.cd; }
+    if(u.cd<=0){ fire(u,tg); u.cd=unitCd(u); }
   } else pursue(u,tg,dt);
 }
 function pursue(u,tg,dt){
@@ -1726,6 +1768,37 @@ requestAnimationFrame(frame);
 
 /* ================= MENU WIRING ================= */
 let chosenFac=null, chosenDiff='normal', chosenMap='medium', chosenPos='bl';
+function dbgSpawn(){
+  if(G.state!=='play') return;
+  const v=document.getElementById('dbgUnit').value; if(!v) return;
+  const [fk,k]=v.split(':'); const def=FACTIONS[fk].units.find(u=>u.k===k); if(!def) return;
+  const cx=clamp(G.cam.x+(innerWidth-uiSidebar())/2,40,WW-40), cy=clamp(G.cam.y+innerHeight/2,40,WH-40);
+  for(let i=0;i<DBG.qty;i++){ const u=createUnit(DBG.spawnOwner,def,cx+rand(-44,44),cy+rand(-44,44));
+    if(def.harv) u.order={t:'harvest'}; else { u.order={t:'idle'}; u.ax=u.x; u.ay=u.y; } }
+  sfx('click');
+}
+function dbgRecomputeHp(){ for(const u of G.units) if(u.owner===0&&!u.dead){ const om=u.maxHp; u.maxHp=unitHpMax(u); u.hp=Math.min(u.maxHp,u.hp+Math.max(0,u.maxHp-om)); } }
+function initDebug(){
+  const $d=id=>document.getElementById(id);
+  const sel=$d('dbgUnit');
+  for(const fk of Object.keys(FACTIONS)){ const og=document.createElement('optgroup'); og.label=FACTIONS[fk].name;
+    for(const u of FACTIONS[fk].units){ const o=document.createElement('option'); o.value=fk+':'+u.k; o.textContent=u.i+' '+u.n; og.appendChild(o); }
+    sel.appendChild(og); }
+  $d('btnDbg').onclick=()=>{ const p=$d('dbgPanel'), show=p.classList.contains('hidden'); p.classList.toggle('hidden'); $d('btnDbg').classList.toggle('on',show); };
+  $d('dbgClose').onclick=()=>{ $d('dbgPanel').classList.add('hidden'); $d('btnDbg').classList.remove('on'); };
+  document.querySelectorAll('#dbgPanel [data-cash]').forEach(b=>b.onclick=()=>{ addMoney(0,+b.dataset.cash); updateHud(); });
+  $d('dbgCashSet').onclick=()=>{ const x=parseInt($d('dbgCashIn').value,10); if(!isNaN(x)){ G.money=Math.max(0,x); updateHud(); } };
+  $d('dbgQty').oninput=e=>{ DBG.qty=+e.target.value; $d('dbgQtyV').textContent=DBG.qty; };
+  $d('dbgOwner').onclick=()=>{ DBG.spawnOwner=DBG.spawnOwner===0?1:0; $d('dbgOwner').textContent='Owner: '+(DBG.spawnOwner===0?'Me':'Enemy'); };
+  $d('dbgSpawn').onclick=dbgSpawn;
+  document.querySelectorAll('#dbgPanel [data-mod]').forEach(r=>r.oninput=()=>{ const m=r.dataset.mod; DBG[m]=+r.value;
+    const lab=$d('dbg'+m.charAt(0).toUpperCase()+m.slice(1)+'V'); if(lab) lab.textContent=DBG[m].toFixed(1); if(m==='hp') dbgRecomputeHp(); });
+  $d('dbgMaxXp').onclick=()=>{ for(const u of G.sel) if(u.kind==='unit'&&u.owner===0&&!u.def.harv){ u.kills=VET_REQ[2]; u.vet=3; const om=u.maxHp; u.maxHp=unitHpMax(u); u.hp=Math.min(u.maxHp,u.hp+Math.max(0,u.maxHp-om)); } };
+  $d('dbgHeal').onclick=()=>{ for(const u of G.sel) if(!u.dead) u.hp=u.maxHp; };
+  $d('dbgReveal').onclick=()=>{ DBG.reveal=!DBG.reveal; $d('dbgReveal').classList.toggle('on',DBG.reveal); updateFog(); };
+  $d('dbgGod').onclick=()=>{ DBG.god=!DBG.god; $d('dbgGod').classList.toggle('on',DBG.god); };
+  $d('dbgWin').onclick=()=>{ if(G.state==='play') for(const b of G.buildings) if(b.owner===1&&!b.dead) killEnt(b,null); };
+}
 (function initMenu(){
   const wrap=$('facCards');
   for(const key of Object.keys(FACTIONS)){
@@ -1745,6 +1818,7 @@ let chosenFac=null, chosenDiff='normal', chosenMap='medium', chosenPos='bl';
   });
   pickRow('data-d',v=>chosenDiff=v); pickRow('data-m',v=>chosenMap=v); pickRow('data-p',v=>chosenPos=v);
   $('selInfo').addEventListener('click',ev=>{ const b=ev.target.closest('.perkBtn'); if(b&&!b.disabled){ buyPerk(0,b.dataset.perk); updateHud(); } });
+  initDebug();
   $('btnStart').onclick=()=>{ if(chosenFac){ audioInit(); startGame(chosenFac,chosenDiff,chosenMap,chosenPos); } };
   $('btnRestart').onclick=()=>location.reload();
   $('btnMute').onclick=toggleMute;
