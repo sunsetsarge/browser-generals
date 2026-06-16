@@ -1583,7 +1583,8 @@ function updateHud(){
   // selection info
   const live=G.sel.filter(e=>!e.dead); G.sel=live;
   const si=$('selInfo');
-  if(!live.length) si.innerHTML='<i style="color:#7a8366">Nothing selected</i>';
+  let html;
+  if(!live.length) html='<i style="color:#7a8366">Nothing selected</i>';
   else if(live.length===1){ const e=live[0];
     let s='<b style="color:'+ownerColor(e)+'">'+e.def.n+'</b>'+(e.owner===1?' <span style="color:#e05545">(enemy)</span>':'')+'<br>HP '+Math.ceil(e.hp)+' / '+e.maxHp;
     if(e.kind==='unit'&&e.def.w) s+='<br>DMG '+Math.round(unitDmg(e))+' · RNG '+Math.round(unitRng(e));
@@ -1601,12 +1602,15 @@ function updateHud(){
       for(const p of PERKS){ const lv=perkLvl(0,p.k), maxed=lv>=p.max, cost=perkPrice(p,0), pips='●'.repeat(lv)+'○'.repeat(p.max-lv);
         s+='<button class="perkBtn" data-perk="'+p.k+'"'+((maxed||G.money<cost)?' disabled':'')+'>'+p.i+' '+p.n+' '+pips+(maxed?' · MAX':' · $'+cost)+'</button>'; }
     }
-    si.innerHTML=s;
+    html=s;
   } else {
     const counts={};
     for(const e of live) counts[e.def.n]=(counts[e.def.n]||0)+1;
-    si.innerHTML='<b>'+live.length+' selected</b><br>'+Object.entries(counts).map(([n,c])=>c+'× '+n).join('<br>');
+    html='<b>'+live.length+' selected</b><br>'+Object.entries(counts).map(([n,c])=>c+'× '+n).join('<br>');
   }
+  // only rewrite when the content actually changed — otherwise the per-frame
+  // innerHTML reset destroys the perk buttons (hover flicker + eaten clicks)
+  if(si._html!==html){ si.innerHTML=html; si._html=html; }
 }
 
 /* ================= GAME FLOW ================= */
