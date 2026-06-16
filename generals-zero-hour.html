@@ -125,6 +125,19 @@ body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-are
     <button data-d="normal" class="sel">Normal</button>
     <button data-d="hard">Hard</button>
   </div>
+  <div class="diffRow">Map size:
+    <button data-m="small">Small 64²</button>
+    <button data-m="medium" class="sel">Medium 96²</button>
+    <button data-m="large">Large 128²</button>
+  </div>
+  <div class="diffRow">Start:
+    <button data-p="bl" class="sel">◣ Bottom-L</button>
+    <button data-p="tl">◤ Top-L</button>
+    <button data-p="tr">◥ Top-R</button>
+    <button data-p="br">◢ Bottom-R</button>
+    <button data-p="center">◉ Center</button>
+    <button data-p="random">🎲 Random</button>
+  </div>
   <button id="btnStart" disabled>SELECT A FACTION</button>
   <div class="foot">Left-drag select · Right-click move/attack · A = attack-move · Ctrl+1-9 groups · Arrows/edges/minimap scroll</div>
   <span id="credit-bg">Blaine Cully</span>
@@ -152,7 +165,9 @@ body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-are
 <script>
 "use strict";
 /* ================= UTILS ================= */
-const TILE=40, MW=64, MH=64, WW=MW*TILE, WH=MH*TILE, SIDEBAR=232, TOPBAR=40;
+const TILE=40, SIDEBAR=232, TOPBAR=40;
+let MW=64, MH=64, WW=MW*TILE, WH=MH*TILE;       // map dims (mutable: chosen per match)
+const MAP_SIZES={small:64, medium:96, large:128};
 const TAU=Math.PI*2;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const dist2=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
@@ -202,6 +217,9 @@ USA:{key:'USA',name:'USA',color:'#4f8fe0',dark:'#23446e',
   {k:'factory',n:'War Factory',i:'🏭',cost:1500,t:15,hp:1500,size:3,pow:-2,req:'barracks',trains:'factory'},
   {k:'air',n:'Airfield',i:'🛩️',cost:1200,t:14,hp:1100,size:3,pow:-2,req:'factory',trains:'air'},
   {k:'def',n:'Patriot Battery',i:'🗼',cost:900,t:10,hp:700,size:1,pow:-1,req:'barracks',w:{type:'rocket',dmg:45,rng:280,cd:1.5,aa:true,sp:360}},
+  {k:'firebase',n:'Fire Base',i:'🏰',cost:900,t:11,hp:1500,size:2,pow:-1,req:'barracks',w:{type:'bullet',dmg:14,rng:300,cd:.12}},
+  {k:'strategy',n:'Strategy Center',i:'🎖️',cost:1200,t:14,hp:1600,size:3,pow:-1,req:'factory',income:3},
+  {k:'particle',n:'Particle Cannon',i:'🛰️',cost:5000,t:30,hp:1000,size:3,pow:-5,req:'strategy',super:{cd:95,dmg:340,aoe:120,label:'PARTICLE CANNON'}},
  ],
  units:[
   {k:'ranger',n:'Ranger',i:'🔫',cls:'inf',cost:200,t:4,hp:120,sp:60,ar:'inf',r:8,sight:220,src:'barracks',w:{type:'bullet',dmg:10,rng:140,cd:.5}},
@@ -213,6 +231,9 @@ USA:{key:'USA',name:'USA',color:'#4f8fe0',dark:'#23446e',
   {k:'tomahawk',n:'Tomahawk Launcher',i:'☄️',cls:'art',cost:1200,t:14,hp:200,sp:55,ar:'light',r:14,sight:360,src:'factory',w:{type:'rocket',dmg:110,rng:340,cd:4,aoe:55,sp:180}},
   {k:'raptor',n:'F-22 Raptor',i:'✈️',cls:'jet',cost:1400,t:14,hp:240,sp:190,ar:'air',r:12,sight:280,src:'air',air:true,w:{type:'rocket',dmg:90,rng:190,cd:2.2,aa:true,sp:400}},
   {k:'comanche',n:'Comanche',i:'🚁',cls:'heli',cost:1500,t:15,hp:320,sp:140,ar:'air',r:12,sight:260,src:'air',air:true,w:{type:'rocket',dmg:26,rng:180,cd:.5,aa:true,sp:340}},
+  {k:'burton',n:'Colonel Burton',i:'🔪',cls:'inf',cost:1500,t:14,hp:300,sp:92,ar:'inf',r:8,sight:300,src:'barracks',w:{type:'sniper',dmg:90,rng:200,cd:.9}},
+  {k:'avenger',n:'Avenger',i:'🔆',cls:'tank',cost:1500,t:14,hp:420,sp:80,ar:'light',r:14,sight:300,src:'factory',w:{type:'rocket',dmg:30,rng:260,cd:.4,aa:true,sp:520}},
+  {k:'aurora',n:'Aurora Bomber',i:'🛫',cls:'jet',cost:1800,t:16,hp:200,sp:240,ar:'air',r:13,sight:300,src:'air',air:true,w:{type:'blast',dmg:130,rng:170,cd:3.2,aoe:60,sp:520}},
   {k:'chinook',n:'Chinook (Harvester)',i:'📦',cls:'heli',cost:600,t:10,hp:300,sp:120,ar:'air',r:13,sight:200,src:'supply',air:true,harv:{cap:300}},
  ]},
 CHINA:{key:'CHINA',name:'China',color:'#e0524f',dark:'#6e2423',
@@ -226,6 +247,9 @@ CHINA:{key:'CHINA',name:'China',color:'#e0524f',dark:'#6e2423',
   {k:'factory',n:'War Factory',i:'🏭',cost:1400,t:15,hp:1600,size:3,pow:-2,req:'barracks',trains:'factory'},
   {k:'air',n:'Airfield',i:'🛩️',cost:1200,t:14,hp:1100,size:3,pow:-2,req:'factory',trains:'air'},
   {k:'def',n:'Gattling Cannon',i:'🗼',cost:800,t:10,hp:900,size:1,pow:-1,req:'barracks',w:{type:'bullet',dmg:9,rng:260,cd:.1,aa:true}},
+  {k:'bunker',n:'Bunker',i:'🏯',cost:700,t:9,hp:1400,size:1,pow:-1,req:'barracks',w:{type:'bullet',dmg:11,rng:270,cd:.14}},
+  {k:'propaganda',n:'Propaganda Center',i:'📡',cost:1200,t:14,hp:1600,size:3,pow:-2,req:'factory',income:3},
+  {k:'nuke',n:'Nuclear Missile',i:'☢️',cost:5000,t:32,hp:1000,size:3,pow:-6,req:'propaganda',super:{cd:100,dmg:380,aoe:135,label:'NUCLEAR MISSILE'}},
  ],
  units:[
   {k:'redguard',n:'Red Guard',i:'🔫',cls:'inf',cost:150,t:3.5,hp:140,sp:55,ar:'inf',r:8,sight:210,src:'barracks',w:{type:'bullet',dmg:9,rng:130,cd:.5}},
@@ -237,6 +261,8 @@ CHINA:{key:'CHINA',name:'China',color:'#e0524f',dark:'#6e2423',
   {k:'inferno',n:'Inferno Cannon',i:'☄️',cls:'art',cost:1100,t:13,hp:220,sp:55,ar:'light',r:14,sight:350,src:'factory',w:{type:'flame',dmg:95,rng:330,cd:3.6,aoe:50,sp:200}},
   {k:'mig',n:'MiG Fighter',i:'✈️',cls:'jet',cost:1300,t:13,hp:220,sp:200,ar:'air',r:12,sight:280,src:'air',air:true,w:{type:'rocket',dmg:80,rng:180,cd:2,aa:true,sp:400}},
   {k:'helix',n:'Helix',i:'🚁',cls:'heli',cost:1700,t:16,hp:500,sp:105,ar:'air',r:14,sight:260,src:'air',air:true,w:{type:'bullet',dmg:16,rng:170,cd:.18,aa:true}},
+  {k:'lotus',n:'Black Lotus',i:'🌸',cls:'inf',cost:1500,t:14,hp:260,sp:85,ar:'inf',r:8,sight:300,src:'barracks',w:{type:'sniper',dmg:70,rng:190,cd:1.0}},
+  {k:'nukecannon',n:'Nuke Cannon',i:'☢️',cls:'art',cost:1600,t:16,hp:260,sp:48,ar:'light',r:15,sight:380,src:'factory',w:{type:'blast',dmg:120,rng:360,cd:4.2,aoe:70,sp:200}},
   {k:'truck',n:'Supply Truck',i:'📦',cls:'truck',cost:400,t:8,hp:260,sp:95,ar:'light',r:13,sight:180,src:'supply',harv:{cap:300}},
  ]},
 GLA:{key:'GLA',name:'GLA',color:'#b5a642',dark:'#5a531f',
@@ -249,6 +275,9 @@ GLA:{key:'GLA',name:'GLA',color:'#b5a642',dark:'#5a531f',
   {k:'factory',n:'Arms Dealer',i:'🏭',cost:1400,t:14,hp:1400,size:3,pow:0,req:'barracks',trains:'factory'},
   {k:'market',n:'Black Market',i:'🛒',cost:1500,t:14,hp:900,size:2,pow:0,req:'factory',income:8},
   {k:'def',n:'Stinger Site',i:'🗼',cost:700,t:9,hp:600,size:1,pow:0,req:'barracks',w:{type:'rocket',dmg:34,rng:260,cd:1.1,aa:true,sp:340}},
+  {k:'tunnel',n:'Tunnel Network',i:'🕳️',cost:600,t:8,hp:1200,size:2,pow:0,req:'barracks',w:{type:'bullet',dmg:10,rng:250,cd:.16}},
+  {k:'palace',n:'Palace',i:'🕌',cost:2000,t:18,hp:2400,size:3,pow:0,req:'factory',w:{type:'cannon',dmg:40,rng:240,cd:1.4,sp:420}},
+  {k:'scudstorm',n:'SCUD Storm',i:'🌪️',cost:4800,t:30,hp:1000,size:3,pow:0,req:'palace',super:{cd:90,dmg:300,aoe:150,label:'SCUD STORM'}},
  ],
  units:[
   {k:'rebel',n:'Rebel',i:'🔫',cls:'inf',cost:120,t:3,hp:110,sp:60,ar:'inf',r:8,sight:210,src:'barracks',w:{type:'bullet',dmg:9,rng:130,cd:.5}},
@@ -261,6 +290,9 @@ GLA:{key:'GLA',name:'GLA',color:'#b5a642',dark:'#5a531f',
   {k:'buggy',n:'Rocket Buggy',i:'🏎️',cls:'truck',cost:900,t:10,hp:180,sp:150,ar:'light',r:12,sight:300,src:'factory',w:{type:'rocket',dmg:22,rng:300,cd:.55,sp:330}},
   {k:'toxin',n:'Toxin Tractor',i:'☣️',cls:'truck',cost:600,t:8,hp:340,sp:82,ar:'light',r:13,sight:200,src:'factory',w:{type:'flame',dmg:10,rng:125,cd:.25,aoe:24}},
   {k:'scud',n:'SCUD Launcher',i:'☄️',cls:'art',cost:1300,t:15,hp:250,sp:50,ar:'light',r:15,sight:370,src:'factory',w:{type:'blast',dmg:150,rng:360,cd:5,aoe:75,sp:170}},
+  {k:'jarmen',n:'Jarmen Kell',i:'🎯',cls:'inf',cost:1200,t:13,hp:220,sp:80,ar:'inf',r:8,sight:340,src:'barracks',w:{type:'sniper',dmg:110,rng:300,cd:2.2}},
+  {k:'bombtruck',n:'Bomb Truck',i:'💣',cls:'truck',cost:800,t:9,hp:260,sp:120,ar:'light',r:13,sight:200,src:'factory',suicide:{dmg:340,aoe:90}},
+  {k:'cycle',n:'Combat Cycle',i:'🏍️',cls:'truck',cost:300,t:4,hp:140,sp:170,ar:'light',r:11,sight:240,src:'barracks',w:{type:'bullet',dmg:9,rng:140,cd:.4}},
   {k:'worker',n:'Worker',i:'👷',cls:'inf',cost:300,t:6,hp:110,sp:75,ar:'inf',r:8,sight:170,src:'supply',harv:{cap:250}},
  ]},
 };
@@ -295,11 +327,29 @@ function inMap(tx,ty){return tx>=0&&ty>=0&&tx<MW&&ty<MH;}
 function isBlocked(tx,ty){return !inMap(tx,ty)||blockGrid[tIdx(tx,ty)]>0;}
 function isBlockedW(wx,wy){return isBlocked(Math.floor(wx/TILE),Math.floor(wy/TILE));}
 
-const P_BASE={tx:10,ty:52}, A_BASE={tx:53,ty:11};
+let P_BASE={tx:10,ty:52}, A_BASE={tx:53,ty:11};
+function setMapSize(key){
+  const n=MAP_SIZES[key]||64; MW=n; MH=n; WW=MW*TILE; WH=MH*TILE; MSC=216/WW;
+  terr=new Uint8Array(MW*MH); blockGrid=new Uint8Array(MW*MH);
+  fogVis=new Uint8Array(MW*MH); fogExp=new Uint8Array(MW*MH);
+  fogCanvas.width=MW; fogCanvas.height=MH;
+  pfG=new Float32Array(MW*MH); pfPar=new Int32Array(MW*MH); pfClosed=new Uint8Array(MW*MH);
+}
+function setupBases(posKey){
+  const m=Math.max(7,Math.round(MW*0.13));
+  const POS={bl:[m,MH-m],tl:[m,m],tr:[MW-m,m],br:[MW-m,MH-m],center:[Math.round(MW/2),Math.round(MH*0.72)]};
+  let pk=posKey; if(pk==='random') pk=pick(['bl','tl','tr','br']);
+  const p=POS[pk]||POS.bl;
+  P_BASE.tx=clamp(p[0],m,MW-m); P_BASE.ty=clamp(p[1],m,MH-m);
+  const corners=[[m,m],[MW-m,m],[m,MH-m],[MW-m,MH-m]];   // enemy starts at the farthest corner
+  let best=corners[0],bd=-1; for(const c of corners){ const d=dist2(c[0],c[1],P_BASE.tx,P_BASE.ty); if(d>bd){bd=d;best=c;} }
+  A_BASE.tx=best[0]; A_BASE.ty=best[1];
+}
 function genMap(){
   terr.fill(0); decor=[]; G.supplies=[];
+  const area=MW*MH, scaleN=area/(64*64);   // scale feature counts to map area
   // tree clumps
-  for(let c=0;c<55;c++){
+  for(let c=0;c<Math.round(55*scaleN);c++){
     let tx=randi(1,MW-2), ty=randi(1,MH-2);
     for(let n=randi(4,11);n>0;n--){
       if(inMap(tx,ty)) terr[tIdx(tx,ty)]=1;
@@ -307,22 +357,27 @@ function genMap(){
     }
   }
   // rocks
-  for(let c=0;c<22;c++){ const tx=randi(1,MW-2),ty=randi(1,MH-2); terr[tIdx(tx,ty)]=2; if(Math.random()<.5&&inMap(tx+1,ty)) terr[tIdx(tx+1,ty)]=2; }
+  for(let c=0;c<Math.round(22*scaleN);c++){ const tx=randi(1,MW-2),ty=randi(1,MH-2); terr[tIdx(tx,ty)]=2; if(Math.random()<.5&&inMap(tx+1,ty)) terr[tIdx(tx+1,ty)]=2; }
   // clear base areas
   for(const b of [P_BASE,A_BASE]) for(let y=-9;y<=9;y++)for(let x=-9;x<=9;x++){ const tx=b.tx+x,ty=b.ty+y; if(inMap(tx,ty)&&x*x+y*y<81) terr[tIdx(tx,ty)]=0; }
-  // carve corridor between bases (and a second bent route)
-  const carve=(x0,y0,x1,y1)=>{ for(let t=0;t<=1;t+=0.01){ const cx=Math.round(x0+(x1-x0)*t), cy=Math.round(y0+(y1-y0)*t); for(let y=-2;y<=2;y++)for(let x=-2;x<=2;x++){ const tx=cx+x,ty=cy+y; if(inMap(tx,ty)) terr[tIdx(tx,ty)]=0; } } };
+  // carve corridor between the two bases plus two bent alternate routes via thirds of the map
+  const carve=(x0,y0,x1,y1)=>{ const steps=Math.max(2,Math.hypot(x1-x0,y1-y0)); for(let i=0;i<=steps*2;i++){ const t=i/(steps*2),cx=Math.round(x0+(x1-x0)*t),cy=Math.round(y0+(y1-y0)*t); for(let y=-2;y<=2;y++)for(let x=-2;x<=2;x++){ const tx=cx+x,ty=cy+y; if(inMap(tx,ty)) terr[tIdx(tx,ty)]=0; } } };
   carve(P_BASE.tx,P_BASE.ty,A_BASE.tx,A_BASE.ty);
-  carve(P_BASE.tx,P_BASE.ty,12,12); carve(12,12,A_BASE.tx,A_BASE.ty);
-  carve(P_BASE.tx,P_BASE.ty,52,52); carve(52,52,A_BASE.tx,A_BASE.ty);
+  const b1=[Math.round(MW*0.3),Math.round(MH*0.3)], b2=[Math.round(MW*0.7),Math.round(MH*0.7)];
+  carve(P_BASE.tx,P_BASE.ty,b1[0],b1[1]); carve(b1[0],b1[1],A_BASE.tx,A_BASE.ty);
+  carve(P_BASE.tx,P_BASE.ty,b2[0],b2[1]); carve(b2[0],b2[1],A_BASE.tx,A_BASE.ty);
   // decor objects from terrain
   for(let ty=0;ty<MH;ty++)for(let tx=0;tx<MW;tx++){ const v=terr[tIdx(tx,ty)];
     if(v===1) decor.push({x:tx*TILE+TILE/2+rand(-6,6),y:ty*TILE+TILE/2+rand(-6,6),r:rand(12,17),kind:'tree'});
     else if(v===2){ decor.push({x:tx*TILE+TILE/2,y:ty*TILE+TILE/2,r:rand(13,17),kind:'rock'}); terr[tIdx(tx,ty)]=1; }
   }
   blockGrid.set(terr);
-  // supply clusters: near each base + middle
-  const clusters=[[17,46],[5,42],[28,33],[36,31],[47,18],[59,21]];
+  // supply clusters: two near each base + scattered (count scales with map area)
+  const clusters=[];
+  const near=(b)=>{ for(let i=0;i<2;i++){ const a=rand(0,TAU),r=rand(6,10); clusters.push([clamp(Math.round(b.tx+Math.cos(a)*r),2,MW-3),clamp(Math.round(b.ty+Math.sin(a)*r),2,MH-3)]); } };
+  near(P_BASE); near(A_BASE);
+  const scatter=Math.max(2,Math.round(area/1400));
+  for(let i=0;i<scatter;i++) clusters.push([randi(4,MW-5),randi(4,MH-5)]);
   for(const [cx,cy] of clusters){
     for(let n=0;n<4;n++){
       let tx=clamp(cx+randi(-2,2),1,MW-2), ty=clamp(cy+randi(-2,2),1,MH-2), tries=10;
@@ -339,7 +394,7 @@ function renderTerrain(){
   const c=terrCanvas.getContext('2d');
   c.fillStyle='#a8915c'; c.fillRect(0,0,WW,WH);
   // mottled desert patches
-  for(let i=0;i<900;i++){ c.fillStyle=Math.random()<.5?'rgba(140,118,72,.25)':'rgba(190,168,110,.22)'; const r=rand(20,90); c.beginPath(); c.arc(rand(0,WW),rand(0,WH),r,0,TAU); c.fill(); }
+  for(let i=0;i<Math.round(900*MW*MH/(64*64));i++){ c.fillStyle=Math.random()<.5?'rgba(140,118,72,.25)':'rgba(190,168,110,.22)'; const r=rand(20,90); c.beginPath(); c.arc(rand(0,WW),rand(0,WH),r,0,TAU); c.fill(); }
   // subtle grid
   c.strokeStyle='rgba(0,0,0,.045)'; c.lineWidth=1; c.beginPath();
   for(let x=0;x<=MW;x++){c.moveTo(x*TILE,0);c.lineTo(x*TILE,WH);} for(let y=0;y<=MH;y++){c.moveTo(0,y*TILE);c.lineTo(WW,y*TILE);} c.stroke();
@@ -357,7 +412,7 @@ function renderTerrain(){
 }
 
 /* ================= FOG OF WAR ================= */
-const fogVis=new Uint8Array(MW*MH), fogExp=new Uint8Array(MW*MH);
+let fogVis=new Uint8Array(MW*MH), fogExp=new Uint8Array(MW*MH);
 let fogCanvas=document.createElement('canvas'); fogCanvas.width=MW; fogCanvas.height=MH;
 const fogCtx=fogCanvas.getContext('2d');
 function revealCircle(wx,wy,radPx){
@@ -391,7 +446,7 @@ function nearestOpen(tx,ty){
   }
   return [tx,ty];
 }
-const pfG=new Float32Array(MW*MH), pfPar=new Int32Array(MW*MH), pfClosed=new Uint8Array(MW*MH);
+let pfG=new Float32Array(MW*MH), pfPar=new Int32Array(MW*MH), pfClosed=new Uint8Array(MW*MH);
 function findPathTiles(sx,sy,tx,ty){
   [sx,sy]=nearestOpen(clamp(sx,0,MW-1),clamp(sy,0,MH-1));
   [tx,ty]=nearestOpen(clamp(tx,0,MW-1),clamp(ty,0,MH-1));
@@ -454,6 +509,7 @@ function createBuilding(owner,def,tx,ty,instant){
     x:(tx+def.size/2)*TILE,y:(ty+def.size/2)*TILE,r:def.size*TILE/2,
     hp:instant?def.hp:def.hp*0.1,maxHp:def.hp,armor:'building',air:false,
     done:!!instant,prog:instant?def.t:0,queue:[],qProg:0,cd:0,scanT:rand(0,.3),turret:0,tmpTg:null,
+    superT:def.super?def.super.cd:0,
     rally:{x:(tx+def.size/2)*TILE,y:(ty+def.size)*TILE+50},flash:0,dead:false};
   for(let y2=0;y2<def.size;y2++)for(let x2=0;x2<def.size;x2++) if(inMap(tx+x2,ty+y2)) blockGrid[tIdx(tx+x2,ty+y2)]=2;
   G.buildings.push(b);
@@ -683,6 +739,11 @@ function updateBuilding(b,dt){
     return;
   }
   if(b.def.income) addMoney(b.owner,b.def.income*dt);
+  // superweapon: charge up; the AI fires automatically at the player's base when ready
+  if(b.def.super){
+    if(b.superT>0) b.superT=Math.max(0,b.superT-dt*rate);
+    else if(b.owner===1){ const tg=pick(myBuildings(0)); if(tg) fireSuper(b,tg.x+rand(-60,60),tg.y+rand(-60,60)); }
+  }
   if(b.queue.length){
     b.qProg+=dt*rate;
     const def=b.queue[0];
@@ -715,6 +776,17 @@ function updateBuilding(b,dt){
   }
 }
 
+function fireSuper(b,x,y){
+  const sp=b.def.super; b.superT=sp.cd;
+  x=clamp(x,20,WW-20); y=clamp(y,20,WH-20);
+  splashDamage(x,y,{type:'blast',dmg:sp.dmg,aoe:sp.aoe},b.owner,b);
+  explosion(x,y,sp.aoe*0.95);
+  for(let i=0;i<6;i++){ const a=rand(0,TAU),r=rand(12,sp.aoe*0.85); explosion(x+Math.cos(a)*r,y+Math.sin(a)*r,rand(26,46)); }
+  G.shake=Math.min(16,G.shake+11);
+  G.parts.push({type:'ring',x,y,life:.8,maxLife:.8,size:sp.aoe*1.4,color:'#ffd0a0'});
+  if(b.owner===1&&G.pings.length<8) G.pings.push({x,y,t:2.5});
+  if(b.owner===0||tileVisible(x,y)) sfx('boom');
+}
 /* ---- projectiles / particles ---- */
 function updateProj(p,dt){
   if(p.homing&&p.tg&&!p.tg.dead){ p.tx=p.tg.x; p.ty=p.tg.y; }
@@ -817,8 +889,10 @@ function aiTick(){
   const harvN=G.units.filter(u=>u.owner===1&&!u.dead&&u.def.harv).length;
   if(harvN<3&&hasDone(1,'supply')&&G.aiMoney>harvDef.cost+400) queueUnit(1,harvDef);
   // build order
+  const superB=f.buildings.find(b=>b.super), techK=superB&&superB.req;
   const wantList=[['supply',1],['barracks',1],['factory',1],['def',2],
     [f.buildings.some(b=>b.k==='air')?'air':'market',1],['def',4],['factory',2],['barracks',2],['supply',2],['def',6]];
+  if(superB){ wantList.push([techK,1],[superB.k,1]); }   // tech + superweapon built last
   for(const [k,want] of wantList){
     const def=f.buildings.find(b=>b.k===k); if(!def) continue;
     if(def.req&&!hasDone(1,def.req)) continue;
@@ -885,6 +959,9 @@ function selectRect(x0,y0,x1,y1,additive){
 function issueCommand(wx,wy){
   const own=G.sel.filter(e=>!e.dead&&e.owner===0);
   if(!own.length) return;
+  // charged superweapon selected → fire at the clicked location
+  const sup=own.find(e=>e.kind==='building'&&e.def.super&&e.superT<=0);
+  if(sup){ fireSuper(sup,wx,wy); G.parts.push({type:'ring',x:wx,y:wy,life:.6,maxLife:.6,size:46,color:'#ff5566'}); sfx('click'); return; }
   // single own production building selected → rally
   if(own.length&&own.every(e=>e.kind==='building')){
     for(const b of own) if(b.def.trains) b.rally={x:wx,y:wy};
@@ -1029,6 +1106,9 @@ canvas.addEventListener('touchend',endTouch,{passive:false});
 canvas.addEventListener('touchcancel',()=>{ touch.active=false; clearTimeout(touch.lp); G.drag=null; },{passive:false});
 function touchTap(wx,wy,sx,sy){
   const ent=entAt(wx,wy);
+  // charged superweapon selected → tap fires it (unless tapping your own unit/building)
+  const sup=G.sel.find(e=>e.kind==='building'&&e.owner===0&&e.def.super&&e.superT<=0);
+  if(sup&&!(ent&&ent.owner===0)){ fireSuper(sup,wx,wy); G.parts.push({type:'ring',x:wx,y:wy,life:.6,maxLife:.6,size:46,color:'#ff5566'}); sfx('click'); return; }
   const now=performance.now();
   const dbl=(now-lastTapT<340&&Math.abs(sx-lastTapX)<30&&Math.abs(sy-lastTapY)<30);
   lastTapT=now; lastTapX=sx; lastTapY=sy;
@@ -1103,7 +1183,7 @@ function unitRole(def){
   else { const w=def.w;
     if(!w) r='scout';
     else if(w.type==='sniper') r='sniper';
-    else if(w.aoe&&w.rng>=300) r='arty';   // long-range splash = artillery (Tomahawk/SCUD/Inferno)
+    else if(w.aoe&&(w.rng>=300||w.type==='blast')) r='arty';   // long-range/explosive splash = artillery (Tomahawk/SCUD/Inferno/Nuke Cannon/Aurora)
     else if(w.type==='flame') r='flame';    // short-range flame keeps its identity (Dragon/Toxin)
     else if(w.type==='rocket') r='rocket';
     else if(w.type==='cannon') r='cannon';
@@ -1217,6 +1297,13 @@ function drawBuilding(c,b){
       c.beginPath(); c.moveTo(b.x,b.y); c.lineTo(b.x+Math.cos(b.turret)*w*.55,b.y+Math.sin(b.turret)*w*.55); c.stroke();
     }
     if(lowPower(b.owner)&&(b.def.pow||0)<0){ c.font='13px sans-serif'; c.fillText('⚡❌',b.x,py+12); }
+    if(b.def.super){ // superweapon charge ring (pulses gold when ready)
+      const sp=b.def.super, frac=1-clamp(b.superT/sp.cd,0,1), ready=b.superT<=0;
+      c.lineWidth=3.5; c.strokeStyle='rgba(0,0,0,.5)'; c.beginPath(); c.arc(b.x,b.y,w*.42,0,TAU); c.stroke();
+      c.strokeStyle=ready?('rgba(255,210,90,'+(0.55+0.45*Math.sin(G.time*6))+')'):'#ff7a3c';
+      c.beginPath(); c.arc(b.x,b.y,w*.42,-Math.PI/2,-Math.PI/2+TAU*frac); c.stroke();
+      if(ready&&b.owner===0){ c.fillStyle='#ffe14d'; c.font='bold 10px sans-serif'; c.fillText('READY',b.x,py+w+9); }
+    }
   } else {
     // construction scaffold
     c.strokeStyle='#caa84a'; c.lineWidth=2;
@@ -1328,7 +1415,7 @@ function render(){
 
 /* ---- minimap ---- */
 const mini=document.getElementById('minimap'), mctx=mini.getContext('2d');
-const MSC=216/WW;
+let MSC=216/WW;
 function renderMini(){
   if(!miniTerr) return;
   mctx.drawImage(miniTerr,0,0);
@@ -1344,7 +1431,7 @@ function renderMini(){
     mctx.fillStyle=u.owner===0?'#aef080':'#ff7060';
     mctx.fillRect(u.x*MSC-1,u.y*MSC-1,2.4,2.4); }
   for(const p of G.pings){ mctx.strokeStyle='rgba(255,60,40,'+clamp(p.t,0,1)+')'; mctx.lineWidth=1.5;
-    mctx.beginPath(); mctx.arc(p.x*MSC,p.y*MSC,(2-p.t)*9,0,TAU); mctx.stroke(); }
+    mctx.beginPath(); mctx.arc(p.x*MSC,p.y*MSC,Math.max(1,(2-p.t)*9),0,TAU); mctx.stroke(); }
   mctx.strokeStyle='#fff'; mctx.lineWidth=1;
   mctx.strokeRect(G.cam.x*MSC,G.cam.y*MSC,(innerWidth-uiSidebar())*MSC,innerHeight*MSC);
 }
@@ -1443,6 +1530,9 @@ function updateHud(){
     if(e.kind==='unit'&&e.def.harv) s+='<br>Cargo $'+e.carry+' / '+e.def.harv.cap;
     if(e.kind==='building'&&e.queue&&e.queue.length) s+='<br>Queue: '+e.queue.map(d=>d.i).join(' ');
     if(e.kind==='building'&&!e.done) s+='<br>Constructing… '+Math.floor(e.prog/e.def.t*100)+'%';
+    if(e.kind==='building'&&e.def.super&&e.done){ s+=e.superT<=0
+      ? '<br><b style="color:#ffe14d">SUPERWEAPON READY</b><br><i style="color:#9aa37f">right-click / tap a target</i>'
+      : '<br>Charging… '+Math.floor((1-e.superT/e.def.super.cd)*100)+'%'; }
     si.innerHTML=s;
   } else {
     const counts={};
@@ -1465,7 +1555,9 @@ function placeBase(owner,base,fac){
   for(let i=0;i<3;i++){ const u=createUnit(owner,rifle,(tx-2+i*2)*TILE,(ty+5)*TILE); u.ax=u.x;u.ay=u.y; }
   for(let i=0;i<2;i++){ const u=createUnit(owner,rocket,(tx-1+i*2)*TILE,(ty+6)*TILE); u.ax=u.x;u.ay=u.y; }
 }
-function startGame(facKey,diffKey){
+function startGame(facKey,diffKey,mapKey,posKey){
+  setMapSize(mapKey||'medium');
+  setupBases(posKey||'bl');
   G.pFac=FACTIONS[facKey];
   G.aFac=FACTIONS[pick(Object.keys(FACTIONS).filter(k=>k!==facKey))];
   G.diff=DIFFS[diffKey];
@@ -1549,7 +1641,7 @@ function frame(now){
 requestAnimationFrame(frame);
 
 /* ================= MENU WIRING ================= */
-let chosenFac=null, chosenDiff='normal';
+let chosenFac=null, chosenDiff='normal', chosenMap='medium', chosenPos='bl';
 (function initMenu(){
   const wrap=$('facCards');
   for(const key of Object.keys(FACTIONS)){
@@ -1562,12 +1654,13 @@ let chosenFac=null, chosenDiff='normal';
       $('btnStart').disabled=false; $('btnStart').textContent='START WAR'; sfx('click'); };
     wrap.appendChild(c);
   }
-  document.querySelectorAll('.diffRow button[data-d]').forEach(b=>{
-    b.onclick=()=>{ chosenDiff=b.dataset.d;
-      document.querySelectorAll('.diffRow button[data-d]').forEach(x=>x.classList.remove('sel'));
+  const pickRow=(attr,set)=>document.querySelectorAll('.diffRow button['+attr+']').forEach(b=>{
+    b.onclick=()=>{ set(b.dataset[attr.slice(5)]);
+      document.querySelectorAll('.diffRow button['+attr+']').forEach(x=>x.classList.remove('sel'));
       b.classList.add('sel'); sfx('click'); };
   });
-  $('btnStart').onclick=()=>{ if(chosenFac){ audioInit(); startGame(chosenFac,chosenDiff); } };
+  pickRow('data-d',v=>chosenDiff=v); pickRow('data-m',v=>chosenMap=v); pickRow('data-p',v=>chosenPos=v);
+  $('btnStart').onclick=()=>{ if(chosenFac){ audioInit(); startGame(chosenFac,chosenDiff,chosenMap,chosenPos); } };
   $('btnRestart').onclick=()=>location.reload();
   $('btnMute').onclick=toggleMute;
   $('btnPause').onclick=()=>{ G.paused=!G.paused; $('btnPause').textContent=G.paused?'▶':'⏸'; };
