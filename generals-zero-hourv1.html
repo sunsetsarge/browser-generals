@@ -1198,14 +1198,13 @@ function drawUnit(c,u){
       c.strokeStyle=dark; c.lineWidth=2.4; c.beginPath(); c.moveTo(2,0); c.lineTo(13,0); c.stroke(); }
     if(u.def.harv&&u.carry>0){ c.fillStyle='#ffd455'; c.fillRect(-6,-4,8,8); }
   } else if(cls==='jet'){
-    c.rotate(u.face);
+    c.rotate(u.face + Math.PI);
     c.fillStyle=dark; c.beginPath(); c.moveTo(14,0); c.lineTo(-9,-9); c.lineTo(-4,0); c.lineTo(-9,9); c.closePath(); c.fill();
     c.fillStyle=col; c.beginPath(); c.moveTo(11,0); c.lineTo(-6,-6); c.lineTo(-2,0); c.lineTo(-6,6); c.closePath(); c.fill();
   } else if(cls==='heli'){
     c.rotate(u.face);
     c.fillStyle=dark; c.beginPath(); c.ellipse(0,0,11,6,0,0,TAU); c.fill();
     c.fillStyle=col; c.beginPath(); c.ellipse(1,0,8,4.5,0,0,TAU); c.fill();
-    c.fillStyle=dark; c.fillRect(-16,-1.5,9,3);
     c.save(); c.rotate(G.time*22%TAU); c.strokeStyle='rgba(40,40,40,.75)'; c.lineWidth=2;
     c.beginPath(); c.moveTo(-15,0); c.lineTo(15,0); c.moveTo(0,-15); c.lineTo(0,15); c.stroke(); c.restore();
     if(u.def.harv&&u.carry>0){ c.fillStyle='#ffd455'; c.fillRect(-4,5,8,6); }
