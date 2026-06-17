@@ -1330,7 +1330,10 @@ function loadDirSprites(key,base,n,size){
 }
 // register available unit sprites (8-direction frames in assets/<key>_0..7.png); missing -> vector fallback
 [['ranger',30],['missile',30],['sniper',30],['burton',32],['humvee',34],['crusader',38],['paladin',40],
- ['avenger',38],['tomahawk',38],['raptor',48],['aurora',50],['comanche',46],['chinook',46]]
+ ['avenger',38],['tomahawk',38],['raptor',48],['aurora',50],['comanche',46],['chinook',46],
+ // China
+ ['redguard',30],['hunter',30],['lotus',32],['dragon',36],['gattling',36],['battlemaster',38],
+ ['overlord',50],['inferno',38],['nukecannon',40],['mig',46],['helix',48]]
  .forEach(a=>loadDirSprites(a[0],'assets/'+a[0],8,a[1]));
 function drawUnit(c,u){
   const f=facOf(u.owner), bc=unitColors(u.def,f), col=bc.body, dark=bc.dark, s=u.def.scale||1;
