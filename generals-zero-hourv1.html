@@ -61,9 +61,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0c08;font-family:
   font-size: 11px;
   color: rgba(255,255,255,0.50);
   letter-spacing: 0.04em;
-  pointer-events: none;
+  cursor: pointer;
   user-select: none;
+  transition: color 0.3s, text-shadow 0.3s;
 }
+#credit-bg.active {
+  color: rgba(255, 220, 50, 0.95);
+  text-shadow: 0 0 8px rgba(255, 200, 0, 0.8), 0 0 20px rgba(255, 160, 0, 0.4);
+}
+#debugBtn { display: none; }
 /* === MOBILE TOUCH OVERRIDES === */
 html,body{touch-action:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;}
 #game{touch-action:none;}
@@ -96,6 +102,7 @@ html,body{touch-action:none;-webkit-tap-highlight-color:transparent;overscroll-b
   <button id="btnMute" title="Mute (M)">🔊</button>
   <button id="btnPause" title="Pause (P)">⏸</button>
   <button id="btnHelp" title="Help (H)">❓</button>
+  <button id="debugBtn" title="Debug">🐛</button>
 </div>
 <div id="sidebar" class="hidden">
   <canvas id="minimap" width="216" height="216"></canvas>
@@ -125,7 +132,7 @@ html,body{touch-action:none;-webkit-tap-highlight-color:transparent;overscroll-b
   </div>
   <button id="btnStart" disabled>SELECT A FACTION</button>
   <div class="foot">Left-drag select · Right-click move/attack · A = attack-move · Ctrl+1-9 groups · Arrows/edges/minimap scroll</div>
-  <span id="credit-bg">Blaine Cully</span>
+  <span id="credit-bg">Sunsetsarge</span>
 </div>
 
 <div id="endScreen" class="ov hidden">
@@ -217,6 +224,7 @@ USA:{key:'USA',name:'USA',color:'#4f8fe0',dark:'#23446e',
   {k:'factory',n:'War Factory',i:'🏭',cost:1500,t:15,hp:1500,size:3,pow:-2,req:'barracks',trains:'factory'},
   {k:'air',n:'Airfield',i:'🛩️',cost:1200,t:14,hp:1100,size:3,pow:-2,req:'factory',trains:'air'},
   {k:'def',n:'Patriot Battery',i:'🗼',cost:900,t:10,hp:700,size:1,pow:-1,req:'barracks',w:{type:'rocket',dmg:45,rng:280,cd:1.5,aa:true,sp:360}},
+  {k:'warcollege',n:'War College',i:'🎓',cost:1000,t:14,hp:900,size:2,pow:-1,req:'barracks'},
  ],
  units:[
   {k:'ranger',n:'Ranger',i:'🔫',cls:'inf',cost:200,t:4,hp:120,sp:60,ar:'inf',r:8,sight:220,src:'barracks',w:{type:'bullet',dmg:10,rng:140,cd:.5}},
@@ -296,6 +304,7 @@ const G={
   keys:{}, fogT:0, uiT:0, aiT:0, winT:0, sepT:0,
   stats:{built:0,lost:0,kills:0,razed:0},
   ai:{nextWave:90, defendCD:0},
+  upgrades:{warCollege:false},
 };
 let nextId=1;
 function facOf(o){return o===0?G.pFac:G.aFac;}
@@ -559,17 +568,45 @@ function stepPath(u,dt){
   }
   return false;
 }
+function targetPriority(attacker, candidate){
+  const cls = candidate.def ? candidate.def.cls : null;
+  const key = candidate.def ? candidate.def.k : null;
+  const isMech = cls==='tank'||cls==='truck'||cls==='heli'||cls==='jet'||cls==='art'||candidate.kind==='building';
+  const isInfantry = cls==='inf';
+  let d = eDist(attacker, candidate);
+  if(candidate.kind==='building') d += 80; // prefer units over buildings
+  let score = d;
+  if(attacker.def && attacker.def.k==='sniper'){
+    if(isMech) score += 500;      // snipers strongly avoid vehicles
+    if(isInfantry) score -= 50;   // snipers prefer infantry
+    if(key==='missile'||key==='stinger'||key==='hunter'||key==='rpg') score -= 100; // top priority: AT/AA troopers
+  }
+  // Prefer low-HP targets (finish them off)
+  if(candidate.maxHp) score -= (1 - candidate.hp/candidate.maxHp) * 30;
+  return score;
+}
 function acquire(u){
-  let best=null,bd=1e9;
   const sight=u.def.sight;
+  let best=null, bestScore=1e9;
   for(const arr of [G.units,G.buildings]) for(const e of arr){
     if(e.dead||e.owner===u.owner||e.owner===undefined) continue;
     if(!canHit(u,e)) continue;
-    let d=eDist(u,e)-(e.kind==='building'?e.r*.6:0);
-    if(e.kind==='building') d+=80; // prefer units
-    if(d<sight&&d<bd){bd=d;best=e;}
+    const d=eDist(u,e)-(e.kind==='building'?e.r*.6:0);
+    if(d>=sight) continue;
+    const score=targetPriority(u,e);
+    if(score<bestScore){bestScore=score;best=e;}
   }
   return best;
+}
+function getEffectiveRange(u,tg){
+  if(!u.def||!u.def.w) return 0;
+  let range=u.def.w.rng;
+  if(u.def.k==='sniper'&&u.owner===0&&G.upgrades&&G.upgrades.warCollege){
+    range*=1.4; // War College: +40% sniper range
+    const tk=tg&&tg.def?tg.def.k:'';
+    if(tk==='missile'||tk==='stinger'||tk==='hunter'||tk==='rpg') range*=1.15; // extra vs AT troopers
+  }
+  return range;
 }
 function engage(u,tg,dt){
   if(u.def.suicide){
@@ -580,7 +617,7 @@ function engage(u,tg,dt){
   }
   const w=u.def.w;
   const d=eDist(u,tg)-(tg.kind==='building'?tg.r*.7:0);
-  if(d<=w.rng){
+  if(d<=getEffectiveRange(u,tg)){
     u.dest=null; u.path=null;
     u.face=angLerp(u.face,Math.atan2(tg.y-u.y,tg.x-u.x),dt*10);
     if(u.cd<=0){ fire(u,tg); u.cd=w.cd; }
@@ -694,7 +731,8 @@ function updateBuilding(b,dt){
   const rate=lowPower(b.owner)?0.5:1;
   if(!b.done){
     b.prog+=dt; b.hp=Math.min(b.maxHp,b.hp+b.maxHp*0.9*dt/b.def.t);
-    if(b.prog>=b.def.t){ b.done=true; b.hp=Math.min(b.maxHp,Math.max(b.hp,b.maxHp)); }
+    if(b.prog>=b.def.t){ b.done=true; b.hp=Math.min(b.maxHp,Math.max(b.hp,b.maxHp));
+      if(b.def.k==='warcollege'&&b.owner===0) G.upgrades.warCollege=true; }
     return;
   }
   if(b.def.income) addMoney(b.owner,b.def.income*dt);
@@ -1158,31 +1196,73 @@ function drawUnit(c,u){
   if(u.flash>0){ c.globalAlpha=.85; }
   const cls=u.def.cls;
   if(cls==='inf'){
-    c.rotate(0);
-    // Smooth walk cycle: abs(sin) gives 2 gentle peaks per period (natural two-step stride).
-    // Each unit gets a unique phase offset (u.id * 2.09 ≈ 2π/3) so squads stride out of sync.
+    // Natural bipedal walk cycle — legs in unit's local coordinate space
     const isMoving = !!u.dest;
-    const walkPhase = G.time * Math.PI * 2.5 + u.id * 2.09; // ~2.5 stride-peaks per second
-    const stride = isMoving ? Math.abs(Math.sin(walkPhase)) : 0; // 0..1, always smooth
-    // Shadow: drifts slightly and shrinks at stride peak (simulates foot lifting)
+    const walkSpeed = 2.8; // full cycles per second
+    const phase = G.time * walkSpeed * Math.PI * 2 + u.id * 2.09; // unique phase per unit
+    const bodyR = 5.5;
+    const legLen = 5;
+    const hipW = 3;
+    const stepLen = 4;
+    const hipY = bodyR * 0.4; // hips slightly below body center
+
+    // Shadow (unrotated — stays under the unit)
     c.fillStyle='rgba(0,0,0,.25)';
-    c.beginPath();
-    c.ellipse(1 + stride*0.8, 3 + stride*0.5, 7 - stride*0.6, 4 - stride*0.4, 0, 0, TAU);
-    c.fill();
-    // Body: gentle swell at stride peak (weight-shift read from top-down view)
-    c.fillStyle=dark; c.beginPath(); c.arc(0, 0, 6.5 + stride*0.5, 0, TAU); c.fill();
-    c.fillStyle=col;  c.beginPath(); c.arc(0, 0, 4.5 + stride*0.35, 0, TAU); c.fill();
-    // Legs: two small dots that stride fore/aft of center — only visible when moving
+    c.beginPath(); c.ellipse(1, 3, 7, 4, 0, 0, TAU); c.fill();
+
+    c.save();
+    c.rotate(u.face); // local coordinate space: +x=forward, +y=right
+
     if(isMoving){
-      const legSway = Math.sin(walkPhase);                                   // -1..1 (sign = which leg is forward)
-      const lx=Math.cos(u.face+Math.PI/2), ly=Math.sin(u.face+Math.PI/2);  // left-normal of facing
-      const fx=Math.cos(u.face),           fy=Math.sin(u.face);             // forward direction
+      const leftTheta  = Math.sin(phase);               // -1..1
+      const leftLift   = Math.max(0, Math.sin(phase));  // only positive (foot lifts on swing)
+      const rightTheta = Math.sin(phase + Math.PI);     // opposite phase
+      const rightLift  = Math.max(0, Math.sin(phase + Math.PI));
+
+      const lFootX = -hipW + leftTheta * stepLen;
+      const lFootY = hipY + legLen - leftLift * 2.5;
+      const rFootX =  hipW + rightTheta * stepLen;
+      const rFootY = hipY + legLen - rightLift * 2.5;
+
+      c.strokeStyle=dark; c.lineWidth=1.5; c.lineCap='round';
+
+      // Left leg: hip → quadratic curve → foot
+      c.beginPath();
+      c.moveTo(-hipW, hipY);
+      c.quadraticCurveTo(-hipW*1.3 + leftTheta*stepLen*0.4, hipY + legLen*0.55, lFootX, lFootY);
+      c.stroke();
+
+      // Right leg (opposite phase)
+      c.beginPath();
+      c.moveTo(hipW, hipY);
+      c.quadraticCurveTo(hipW*1.3 + rightTheta*stepLen*0.4, hipY + legLen*0.55, rFootX, rFootY);
+      c.stroke();
+
+      // Small foot dots
       c.fillStyle=dark;
-      c.beginPath(); c.arc( lx*4 + fx*legSway*2.5,  ly*4 + fy*legSway*2.5, 1.6, 0, TAU); c.fill();
-      c.beginPath(); c.arc(-lx*4 - fx*legSway*2.5, -ly*4 - fy*legSway*2.5, 1.6, 0, TAU); c.fill();
+      c.beginPath(); c.arc(lFootX, lFootY, 1.2, 0, TAU); c.fill();
+      c.beginPath(); c.arc(rFootX, rFootY, 1.2, 0, TAU); c.fill();
+    } else {
+      // Standing still: feet slightly inward, neutral pose
+      c.strokeStyle=dark; c.lineWidth=1.5; c.lineCap='round';
+      c.beginPath(); c.moveTo(-hipW, hipY); c.lineTo(-hipW*0.7, hipY+legLen); c.stroke();
+      c.beginPath(); c.moveTo( hipW, hipY); c.lineTo( hipW*0.7, hipY+legLen); c.stroke();
+      c.fillStyle=dark;
+      c.beginPath(); c.arc(-hipW*0.7, hipY+legLen, 1.2, 0, TAU); c.fill();
+      c.beginPath(); c.arc( hipW*0.7, hipY+legLen, 1.2, 0, TAU); c.fill();
     }
-    // Gun barrel (direction indicator)
-    c.strokeStyle='#222'; c.lineWidth=2; c.beginPath(); c.moveTo(0,0); c.lineTo(Math.cos(u.face)*10,Math.sin(u.face)*10); c.stroke();
+
+    // Body drawn AFTER legs so it covers hip joints
+    c.fillStyle=dark; c.beginPath(); c.arc(0, 0, bodyR, 0, TAU); c.fill();
+    c.fillStyle=col;  c.beginPath(); c.arc(0, 0, bodyR-1.5, 0, TAU); c.fill();
+
+    // Gun barrel points forward (+x in local space)
+    c.strokeStyle='#222'; c.lineWidth=2; c.lineCap='butt';
+    c.beginPath(); c.moveTo(0,0); c.lineTo(10,0); c.stroke();
+
+    c.restore();
+
+    // Special indicators (translated-only space, not rotated)
     if(u.def.suicide){ c.fillStyle='#ff4040'; c.beginPath(); c.arc(0,-7,2.5,0,TAU); c.fill(); }
     if(u.def.harv&&u.carry>0){ c.fillStyle='#ffd455'; c.fillRect(-3,-10,6,5); }
   } else if(cls==='tank'||cls==='truck'||cls==='art'){
@@ -1554,6 +1634,7 @@ function frame(now){
 requestAnimationFrame(frame);
 
 /* ================= MENU WIRING ================= */
+let easterEggActivated=false;
 let chosenFac=null, chosenDiff='normal';
 (function initMenu(){
   const wrap=$('facCards');
@@ -1572,7 +1653,25 @@ let chosenFac=null, chosenDiff='normal';
       document.querySelectorAll('.diffRow button[data-d]').forEach(x=>x.classList.remove('sel'));
       b.classList.add('sel'); sfx('click'); };
   });
-  $('btnStart').onclick=()=>{ if(chosenFac){ audioInit(); startGame(chosenFac,chosenDiff); } };
+  // Easter egg: clicking "Sunsetsarge" activates debug mode
+  $('credit-bg').onclick=()=>{
+    easterEggActivated=true;
+    $('credit-bg').classList.add('active');
+  };
+  $('btnStart').onclick=()=>{
+    if(chosenFac){
+      audioInit();
+      startGame(chosenFac,chosenDiff);
+      if(easterEggActivated) $('debugBtn').style.display='block';
+    }
+  };
+  $('debugBtn').onclick=()=>{
+    const [p,u]=powerOf(0);
+    const info=`⏱ ${Math.floor(G.time)}s | 💰 $${Math.floor(G.money)} | ⚡ ${p}/${u} | 🪖 ${G.units.filter(x=>x.owner===0&&!x.dead).length} | 🎓 War College: ${G.upgrades.warCollege}`;
+    G.parts.push({type:'text',x:G.cam.x+(innerWidth-effectiveSidebarW())/2,y:G.cam.y+60,txt:'[DEBUG]',life:2,maxLife:2});
+    console.log('DEBUG STATE:', {money:G.money,aiMoney:G.aiMoney,time:G.time,units:G.units.length,upgrades:G.upgrades});
+    alert(info);
+  };
   $('btnRestart').onclick=()=>location.reload();
   $('btnMute').onclick=toggleMute;
   $('btnPause').onclick=()=>{ G.paused=!G.paused; $('btnPause').textContent=G.paused?'▶':'⏸'; };
