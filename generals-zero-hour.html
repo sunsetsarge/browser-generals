@@ -1340,11 +1340,18 @@ function drawUnit(c,u){
   if(u.flash>0){ c.globalAlpha=.85; }
   const cls=u.def.cls;
   if(u.recoil) c.translate(-Math.cos(u.face)*u.recoil,-Math.sin(u.face)*u.recoil);   // firing kickback
-  if(cls==='inf'&&u.moving){ const ph=G.time*10+u.id*2; c.translate(Math.sin(ph)*0.6,-Math.abs(Math.sin(ph))*1.6); } // walk bob
+  if(cls==='inf'&&u.moving){ c.translate(0,-Math.abs(Math.sin(G.time*11+u.id*2.1))*1.7); } // walk bob (vertical; legs swung below)
   const spr=SPRITES[u.def.k];
   if(spr&&spr.ready>=spr.n){   // ---- directional sprite (pick nearest of N facings) ----
     const im=spr.img[dirIndex(u.face,spr.n)];
-    if(im&&im.naturalHeight){ const h=spr.size, w=im.naturalWidth/im.naturalHeight*h; c.drawImage(im,-w/2,-h*0.72,w,h); }
+    if(im&&im.naturalHeight){ const h=spr.size, w=im.naturalWidth/im.naturalHeight*h, dy=-h*0.72, nW=im.naturalWidth, nH=im.naturalHeight;
+      if(cls==='inf'&&u.moving){   // running gait: hold the torso, swing the legs from the waist (pendulum shear)
+        const shear=Math.sin(G.time*11+u.id*2.1)*0.32, splitH=h*0.54, splitS=nH*0.54;
+        c.drawImage(im,0,0,nW,splitS,-w/2,dy,w,splitH);                              // upper body (still)
+        c.save(); c.translate(0,dy+splitH); c.transform(1,0,shear,1,0,0);
+        c.drawImage(im,0,splitS,nW,nH-splitS,-w/2,0,w,h-splitH); c.restore();        // legs (swung)
+      } else c.drawImage(im,-w/2,dy,w,h);
+    }
   } else {
   c.save(); // ---- body (may be rotated by facing) ----
   if(cls==='inf'){
