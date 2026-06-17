@@ -1309,6 +1309,16 @@ function drawEmblem(c,role,ey){
   else if(role==='harv'){ c.fillRect(-2.6,-2.6,5.2,5.2); c.strokeRect(-2.6,-2.6,5.2,5.2); }
   c.restore();
 }
+/* ---- directional sprites (optional; falls back to vector art) ----
+   8 frames in compass order starting East, going clockwise: E,SE,S,SW,W,NW,N,NE */
+const SPRITES={};
+function dirIndex(face,n){ const idx=Math.round(face/(TAU/n)); return ((idx%n)+n)%n; }
+function loadDirSprites(key,base,n,size){
+  const set={img:new Array(n),ready:0,n,size:size||30}; SPRITES[key]=set;
+  for(let i=0;i<n;i++){ const im=new Image();
+    im.onload=()=>{set.ready++;}; im.onerror=()=>{ if(SPRITES[key]===set) delete SPRITES[key]; };
+    im.src=base+'_'+i+'.png'; set.img[i]=im; }
+}
 function drawUnit(c,u){
   const f=facOf(u.owner), bc=unitColors(u.def,f), col=bc.body, dark=bc.dark, s=u.def.scale||1;
   const role=unitRole(u.def), ac=ROLE_ACCENT[role];
@@ -1316,6 +1326,11 @@ function drawUnit(c,u){
   if(u.air){ c.translate(0,Math.sin(G.time*3+u.id)*2); }
   if(u.flash>0){ c.globalAlpha=.85; }
   const cls=u.def.cls;
+  const spr=SPRITES[u.def.k];
+  if(spr&&spr.ready>=spr.n){   // ---- directional sprite (pick nearest of N facings) ----
+    const im=spr.img[dirIndex(u.face,spr.n)];
+    if(im&&im.naturalHeight){ const h=spr.size, w=im.naturalWidth/im.naturalHeight*h; c.drawImage(im,-w/2,-h*0.72,w,h); }
+  } else {
   c.save(); // ---- body (may be rotated by facing) ----
   if(cls==='inf'){
     const bodyCol = role==='bomb' ? '#c43a3a' : col;
@@ -1380,6 +1395,7 @@ function drawUnit(c,u){
     if(u.def.harv&&u.carry>0){ c.fillStyle='#ffd455'; c.fillRect(-4,5,8,6); }
   }
   c.restore(); // ---- end body ----
+  } // end vector/sprite branch
   // role emblem above the unit (screen-up, never rotated) for non-default roles
   if(role!=='gun'&&role!=='scout'&&role!=='cannon'){
     const ey=-((cls==='inf'?9:cls==='art'?15:14)+5);
