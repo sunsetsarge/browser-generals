@@ -70,6 +70,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0c08;font-family:
   text-shadow: 0 0 8px rgba(255, 200, 0, 0.8), 0 0 20px rgba(255, 160, 0, 0.4);
 }
 #debugBtn { display: none; }
+.dbg-btn { background: #222; border: 1px solid #555; color: #ddd; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-family: monospace; font-size: 12px; text-align: left; }
+.dbg-btn:hover { background: #333; border-color: #888; }
 /* === MOBILE TOUCH OVERRIDES === */
 html,body{touch-action:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;}
 #game{touch-action:none;}
@@ -1666,12 +1668,25 @@ let chosenFac=null, chosenDiff='normal';
     }
   };
   $('debugBtn').onclick=()=>{
-    const [p,u]=powerOf(0);
-    const info=`⏱ ${Math.floor(G.time)}s | 💰 $${Math.floor(G.money)} | ⚡ ${p}/${u} | 🪖 ${G.units.filter(x=>x.owner===0&&!x.dead).length} | 🎓 War College: ${G.upgrades.warCollege}`;
-    G.parts.push({type:'text',x:G.cam.x+(innerWidth-effectiveSidebarW())/2,y:G.cam.y+60,txt:'[DEBUG]',life:2,maxLife:2});
-    console.log('DEBUG STATE:', {money:G.money,aiMoney:G.aiMoney,time:G.time,units:G.units.length,upgrades:G.upgrades});
-    alert(info);
+    const panel=$('debugPanel');
+    if(panel.style.display==='none'){
+      const [p,u]=powerOf(0);
+      $('debugStats').innerHTML=
+        `⏱ Time: ${Math.floor(G.time)}s<br>`+
+        `💰 Cash: $${Math.floor(G.money)}<br>`+
+        `⚡ Power: ${p}/${u}<br>`+
+        `🪖 Units: ${G.units.filter(x=>x.owner===0&&!x.dead).length} friendly / ${G.units.filter(x=>x.owner===1&&!x.dead).length} enemy<br>`+
+        `🏠 Buildings: ${G.buildings?G.buildings.filter(b=>b.owner===0&&!b.dead).length:'?'}<br>`+
+        `🎓 War College: ${G.upgrades&&G.upgrades.warCollege?'✅ Unlocked':'❌ Locked'}<br>`+
+        `🖥 Canvas: ${canvas.width}×${canvas.height}`;
+      console.log('DEBUG STATE:',{money:G.money,aiMoney:G.aiMoney,time:G.time,units:G.units.length,upgrades:G.upgrades});
+      panel.style.display='block';
+    } else {
+      panel.style.display='none';
+    }
   };
+  $('debugPanelClose').onclick=()=>{ $('debugPanel').style.display='none'; };
+  window.closeDebugPanel=()=>{ $('debugPanel').style.display='none'; };
   $('btnRestart').onclick=()=>location.reload();
   $('btnMute').onclick=toggleMute;
   $('btnPause').onclick=()=>{ G.paused=!G.paused; $('btnPause').textContent=G.paused?'▶':'⏸'; };
@@ -1688,5 +1703,23 @@ let chosenFac=null, chosenDiff='normal';
   }
 })();
 </script>
+
+<div id="debugPanel" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  background:rgba(0,0,0,0.92); border:1px solid #444; border-radius:8px;
+  padding:16px 20px; z-index:9999; color:#eee; font-family:monospace; font-size:13px;
+  min-width:260px; max-width:340px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <strong style="color:#f90;">🐛 Debug Panel</strong>
+    <button id="debugPanelClose" style="background:none;border:none;color:#aaa;font-size:16px;cursor:pointer;">✕</button>
+  </div>
+  <div id="debugStats" style="line-height:1.8;"></div>
+  <hr style="border-color:#333;margin:12px 0;">
+  <div style="display:flex;flex-direction:column;gap:6px;">
+    <button class="dbg-btn" onclick="G.money+=5000;closeDebugPanel()">💰 +$5000</button>
+    <button class="dbg-btn" onclick="G.upgrades.warCollege=true;closeDebugPanel()">🎓 Unlock War College</button>
+    <button class="dbg-btn" onclick="G.units.forEach(u=>{if(u.owner===0)u.hp=u.maxHp});closeDebugPanel()">❤️ Heal All Units</button>
+    <button class="dbg-btn" onclick="G.time=0;closeDebugPanel()">⏱ Reset Timer</button>
+  </div>
+</div>
 </body>
 </html>
