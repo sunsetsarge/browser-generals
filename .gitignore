@@ -7,3 +7,7 @@ firebase-debug.log
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# generated hosting copies (deploy.ps1 stages these from assets/)
+public/assets/
+assets/_qc_*.png

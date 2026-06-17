@@ -23,6 +23,10 @@ if (-not $Force -and (Test-Path $dst)) {
 if ($needsDeploy) {
   New-Item -ItemType Directory -Force -Path (Split-Path $dst) | Out-Null
   Copy-Item $src $dst -Force
+  # stage directional sprite frames for hosting (the <key>_0..7.png files, not the big source sheets)
+  $pubAssets = Join-Path $root 'public\assets'
+  New-Item -ItemType Directory -Force -Path $pubAssets | Out-Null
+  Get-ChildItem (Join-Path $root 'assets') -Filter '*.png' | Where-Object { $_.BaseName -match '_[0-7]$' } | ForEach-Object { Copy-Item $_.FullName $pubAssets -Force }
   firebase deploy --only hosting:browser-generals --project claude-5273b
   if ($LASTEXITCODE -ne 0) { Write-Error "Firebase deploy failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
   Write-Host 'Deployed Browser Generals -> https://browser-generals.web.app'
