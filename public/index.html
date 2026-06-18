@@ -18,6 +18,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0c08;font-family:
 #tbFaction{font-weight:700;letter-spacing:1px;}
 #tbWarn{color:var(--red);font-weight:700;animation:blink 1s infinite;}
 @keyframes blink{50%{opacity:.25}}
+@keyframes swPulse{from{box-shadow:0 0 4px #ff0000;}to{box-shadow:0 0 16px #ff4444,0 0 32px #ff0000;}}
 #topbar button{background:#2e3424;color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 9px;cursor:pointer;font-size:14px;}
 #topbar button:hover{background:#3c4430;}
 #sidebar{position:absolute;top:40px;right:0;bottom:0;width:232px;background:var(--panel);border-left:2px solid var(--border);padding:8px;overflow-y:auto;z-index:10;display:flex;flex-direction:column;gap:6px;}
@@ -117,6 +118,7 @@ body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-are
   <span class="stat">⚡ <b id="tbPower">0/0</b></span>
   <span class="stat">🪖 <b id="tbUnits">0</b></span>
   <span id="tbWarn"></span>
+  <button id="swBtn" title="FIRE SUPER WEAPON" style="display:none;background:linear-gradient(135deg,#8b0000,#cc0000);border:2px solid #ff4444;color:white;font-weight:bold;padding:6px 12px;border-radius:4px;cursor:crosshair;animation:swPulse 0.8s ease-in-out infinite alternate;font-size:12px;">⚡ SUPER WEAPON READY</button>
   <span style="flex:1"></span>
   <button id="btnMute" title="Mute (M)">🔊</button>
   <button id="btnPause" title="Pause (P)">⏸</button>
@@ -1073,6 +1075,19 @@ function aiTick(){
 
 /* ================= INPUT ================= */
 const canvas=document.getElementById('game'), ctx=canvas.getContext('2d');
+let swTargeting=false;
+function updateSwBtn(){
+  const ready=G.state==='play'&&G.buildings.some(b=>b.owner===0&&!b.dead&&b.done&&b.def.super&&b.superT<=0);
+  const btn=document.getElementById('swBtn');
+  if(!btn) return;
+  if(ready){
+    btn.style.display='inline-block';
+    btn.style.opacity=swTargeting?'0.5':'1';
+  } else {
+    btn.style.display='none';
+    if(swTargeting){ swTargeting=false; canvas.style.cursor=''; }
+  }
+}
 const IS_TOUCH = (matchMedia('(pointer:coarse)').matches) || ('ontouchstart' in window) || navigator.maxTouchPoints>0;
 let mobileLayout=false;
 function computeLayout(){
@@ -1151,7 +1166,9 @@ function formation(n,cx,cy){
   return pts;
 }
 
+let mmDragging=false, mmLastX=0, mmLastY=0;
 canvas.addEventListener('mousedown',e=>{
+  if(e.button===1) e.preventDefault(); // prevent middle-click autoscroll popup
   audioInit();
   if(G.state!=='play') return;
   const w=toWorld(e.clientX,e.clientY);
@@ -1167,14 +1184,23 @@ canvas.addEventListener('mousedown',e=>{
     if(G.placing){ G.placing=null; return; }
     if(G.amoveMode){ G.amoveMode=false; return; }
     issueCommand(w.x,w.y);
+  } else if(e.button===1){
+    mmDragging=true; mmLastX=e.clientX; mmLastY=e.clientY;
   }
 });
 canvas.addEventListener('mousemove',e=>{
   G.mouse.sx=e.clientX; G.mouse.sy=e.clientY; G.mouse.seen=true;
   if(G.drag){ G.drag.x1=e.clientX; G.drag.y1=e.clientY;
     if(Math.abs(G.drag.x1-G.drag.x0)+Math.abs(G.drag.y1-G.drag.y0)>8) G.drag.moved=true; }
+  if(mmDragging){
+    const dx=e.clientX-mmLastX, dy=e.clientY-mmLastY;
+    mmLastX=e.clientX; mmLastY=e.clientY;
+    G.cam.x=clamp(G.cam.x-dx,0,Math.max(0,WW-innerWidth+uiSidebar()));
+    G.cam.y=clamp(G.cam.y-dy,0,Math.max(0,WH-innerHeight+TOPBAR));
+  }
 });
 addEventListener('mouseup',e=>{
+  if(e.button===1){ mmDragging=false; return; }
   if(e.button!==0||!G.drag) return;
   const d=G.drag; G.drag=null;
   if(G.state!=='play') return;
@@ -1183,6 +1209,11 @@ addEventListener('mouseup',e=>{
     selectRect(a.x,a.y,b.x,b.y,e.shiftKey);
   } else {
     const w=toWorld(e.clientX,e.clientY);
+    if(swTargeting){
+      const b=G.buildings.find(b=>b.owner===0&&!b.dead&&b.done&&b.def.super&&b.superT<=0);
+      if(b){ fireSuper(b,w.x,w.y); G.parts.push({type:'ring',x:w.x,y:w.y,life:.6,maxLife:.6,size:46,color:'#ff5566'}); sfx('click'); }
+      swTargeting=false; canvas.style.cursor=''; updateSwBtn(); return;
+    }
     const ent=entAt(w.x,w.y);
     if(!e.shiftKey) clearSel();
     if(ent){ if(e.shiftKey&&G.sel.includes(ent)) G.sel=G.sel.filter(x=>x!==ent);
@@ -1255,6 +1286,11 @@ function endTouch(e){
 canvas.addEventListener('touchend',endTouch,{passive:false});
 canvas.addEventListener('touchcancel',()=>{ touch.active=false; clearTimeout(touch.lp); G.drag=null; },{passive:false});
 function touchTap(wx,wy,sx,sy){
+  if(swTargeting){
+    const b=G.buildings.find(b=>b.owner===0&&!b.dead&&b.done&&b.def.super&&b.superT<=0);
+    if(b){ fireSuper(b,wx,wy); G.parts.push({type:'ring',x:wx,y:wy,life:.6,maxLife:.6,size:46,color:'#ff5566'}); sfx('click'); }
+    swTargeting=false; canvas.style.cursor=''; updateSwBtn(); return;
+  }
   const ent=entAt(wx,wy);
   // charged superweapon selected → tap fires it (unless tapping your own unit/building)
   const sup=G.sel.find(e=>e.kind==='building'&&e.owner===0&&e.def.super&&e.superT<=0);
@@ -1280,7 +1316,7 @@ let lastGroupKey='',lastGroupT=0;
 addEventListener('keydown',e=>{
   if(G.state!=='play') return;
   const k=e.key.toLowerCase();
-  if(k==='escape'){ if(G.placing)G.placing=null; else if(G.amoveMode)G.amoveMode=false; else clearSel(); }
+  if(k==='escape'){ if(G.placing)G.placing=null; else if(G.amoveMode)G.amoveMode=false; else if(swTargeting){swTargeting=false;canvas.style.cursor='';updateSwBtn();} else clearSel(); }
   else if(k==='a'&&!e.ctrlKey){ if(G.sel.some(s=>s.kind==='unit'&&s.owner===0)) G.amoveMode=true; }
   else if(k==='s'){ for(const u of G.sel) if(u.kind==='unit'&&u.owner===0){ u.order={t:'idle'}; u.dest=null; u.path=null; u.tmpTg=null; u.ax=u.x; u.ay=u.y; } }
   else if(k==='p'){ G.paused=!G.paused; document.getElementById('btnPause').textContent=G.paused?'▶':'⏸'; }
@@ -1474,7 +1510,6 @@ function drawUnit(c,u){
     c.fillStyle=dark; c.beginPath(); c.ellipse(0,0,11,6,0,0,TAU); c.fill();
     c.fillStyle=col; c.beginPath(); c.ellipse(1,0,8,4.5,0,0,TAU); c.fill();
     c.fillStyle=ac; c.beginPath(); c.arc(7,0,1.8,0,TAU); c.fill(); // nose accent
-    c.fillStyle=dark; c.fillRect(-16,-1.5,9,3);
     if(u.def.harv&&u.carry>0){ c.fillStyle='#ffd455'; c.fillRect(-4,5,8,6); }
   }
   c.restore(); // ---- end body ----
@@ -1855,7 +1890,7 @@ function update(dt){
   // AI
   G.aiT-=dt; if(G.aiT<=0){ aiTick(); G.aiT=1.6; }
   // hud
-  G.uiT-=dt; if(G.uiT<=0){ updateHud(); renderMini(); G.uiT=0.15; }
+  G.uiT-=dt; if(G.uiT<=0){ updateHud(); renderMini(); updateSwBtn(); G.uiT=0.15; }
   // win/lose
   G.winT-=dt;
   if(G.winT<=0){ G.winT=1;
@@ -1931,6 +1966,7 @@ function initDebug(){
   $('btnStart').onclick=()=>{ if(chosenFac){ if(easterEggActivated) $('btnDbg').classList.add('debug-visible'); audioInit(); startGame(chosenFac,chosenDiff,chosenMap,chosenPos); } };
   $('btnRestart').onclick=()=>location.reload();
   $('btnMute').onclick=toggleMute;
+  $('swBtn').onclick=()=>{ if(G.state!=='play') return; swTargeting=!swTargeting; canvas.style.cursor=swTargeting?'crosshair':''; updateSwBtn(); };
   $('btnPause').onclick=()=>{ G.paused=!G.paused; $('btnPause').textContent=G.paused?'▶':'⏸'; };
   $('btnHelp').onclick=()=>$('helpBox').classList.toggle('hidden');
   // mobile / touch wiring
