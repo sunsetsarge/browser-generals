@@ -1,17 +1,18 @@
 name: Deploy to Firebase Hosting
 
-# Deploys the single-file game to Firebase Hosting on every push to main.
-# This decouples deployment from any one machine, so updates pushed from a
-# phone-dispatched Claude session (or any git client) go live automatically.
+# Deploys the single-file game + sprite frames to Firebase Hosting on push to main.
+# Skips gracefully (and the job still SUCCEEDS) when the FIREBASE_TOKEN secret is
+# absent, so it no longer spams failure emails before the secret is configured.
+# The local deploy.ps1 publishes on every change regardless; this CI path exists so
+# pushes made without the local machine (e.g. a phone-dispatched session) also deploy.
 #
-# Requires one repository secret: FIREBASE_TOKEN
-#   Generate locally with:  firebase login:ci
-#   Add at: GitHub repo -> Settings -> Secrets and variables -> Actions -> New repository secret
+# To enable: run `firebase login:ci`, then add the token as repo secret FIREBASE_TOKEN
+# (Settings -> Secrets and variables -> Actions).
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:   # also lets you trigger a deploy manually from the GitHub mobile app
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -24,23 +25,42 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Check for deploy credential
+        id: gate
+        env:
+          TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::FIREBASE_TOKEN secret not set - skipping deploy (local deploy.ps1 handles publishing). Add the secret to enable CI/dispatch deploys."
+          fi
+
       - name: Checkout
+        if: steps.gate.outputs.ready == 'true'
         uses: actions/checkout@v4
 
       - name: Set up Node
+        if: steps.gate.outputs.ready == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Install Firebase CLI
+        if: steps.gate.outputs.ready == 'true'
         run: npm install -g firebase-tools
 
-      - name: Stage single-file game into public/
+      - name: Stage game + sprite frames into public/
+        if: steps.gate.outputs.ready == 'true'
         run: |
-          mkdir -p public
+          mkdir -p public/assets
           cp generals-zero-hour.html public/index.html
+          # copy the directional frame files (<key>_0..7.png), not the big source sheets
+          for f in assets/*_[0-7].png; do [ -e "$f" ] && cp "$f" public/assets/; done
 
       - name: Deploy to Firebase Hosting
+        if: steps.gate.outputs.ready == 'true'
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: firebase deploy --only hosting:browser-generals --project claude-5273b --non-interactive
