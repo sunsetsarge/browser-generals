@@ -1405,7 +1405,12 @@ function loadDirSprites(key,base,n,size){
  ['avenger',38],['tomahawk',38],['raptor',48],['aurora',50],['comanche',46],['chinook',46],
  // China
  ['redguard',30],['hunter',30],['lotus',32],['dragon',36],['gattling',36],['battlemaster',38],
- ['overlord',50],['inferno',38],['nukecannon',40],['mig',46],['helix',48]]
+ ['overlord',50],['inferno',38],['nukecannon',40],['mig',46],['helix',48],
+ // GLA infantry
+ ['rebel',30],['rpg',30],['terrorist',30],['jarmen',30],['worker',30],
+ // GLA vehicles
+ ['cycle',32],['technical',34],['buggy',34],['quad',32],
+ ['scorpion',36],['marauder',40],['bombtruck',34],['toxin',36],['scud',44]]
  .forEach(a=>loadDirSprites(a[0],'assets/'+a[0],8,a[1]));
 function drawUnit(c,u){
   const f=facOf(u.owner), bc=unitColors(u.def,f), col=bc.body, dark=bc.dark, s=u.def.scale||1;
