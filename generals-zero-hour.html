@@ -224,9 +224,19 @@ function angLerp(a,b,t){let d=((b-a+Math.PI)%TAU+TAU)%TAU-Math.PI;return a+d*Mat
 /* ================= AUDIO ================= */
 let AC=null, muted=false, sfxBudget=8;
 function audioInit(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } if(AC&&AC.state==='suspended'){ try{AC.resume();}catch(e){} } }
-function sfx(kind){
-  if(muted||!AC||sfxBudget<=0) return; sfxBudget--;
-  const t=AC.currentTime, g=AC.createGain(); g.connect(AC.destination);
+function sfxVol(x,y){
+  if(x===undefined||x===null||G.state!=='play') return 1;   // UI / non-positional sounds: full volume
+  const L=G.cam.x, T=G.cam.y, R=G.cam.x+innerWidth, B=G.cam.y+innerHeight, m=140;  // viewport in world space
+  if(x<L-m||x>R+m||y<T-m||y>B+m) return 0;                   // outside the player's field of view -> silent
+  const cx=(L+R)/2, cy=(T+B)/2, hw=Math.max(1,(R-L)/2), hh=Math.max(1,(B-T)/2);
+  return clamp(1.05-0.6*Math.hypot((x-cx)/hw,(y-cy)/hh),0.35,1);  // softer toward the edges of view
+}
+function sfx(kind,x,y){
+  if(muted||!AC) return;
+  const vol=sfxVol(x,y); if(vol<=0) return;                 // gate by field of view before spending budget
+  if(sfxBudget<=0) return; sfxBudget--;
+  const t=AC.currentTime, g=AC.createGain();
+  if(vol<1){ const mg=AC.createGain(); mg.gain.value=vol; g.connect(mg); mg.connect(AC.destination); } else g.connect(AC.destination);
   if(kind==='shoot'){ const o=AC.createOscillator(); o.type='square'; o.frequency.setValueAtTime(620,t); o.frequency.exponentialRampToValueAtTime(140,t+.06); g.gain.setValueAtTime(.025,t); g.gain.exponentialRampToValueAtTime(.001,t+.07); o.connect(g); o.start(t); o.stop(t+.08); }
   else if(kind==='rocket'){ const o=AC.createOscillator(); o.type='sawtooth'; o.frequency.setValueAtTime(300,t); o.frequency.exponentialRampToValueAtTime(90,t+.18); g.gain.setValueAtTime(.03,t); g.gain.exponentialRampToValueAtTime(.001,t+.2); o.connect(g); o.start(t); o.stop(t+.22); }
   else if(kind==='boom'){ const n=AC.createBufferSource(), len=AC.sampleRate*.4, buf=AC.createBuffer(1,len,AC.sampleRate), d=buf.getChannelData(0); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len); n.buffer=buf; const f=AC.createBiquadFilter(); f.type='lowpass'; f.frequency.value=500; n.connect(f); f.connect(g); g.gain.setValueAtTime(.12,t); g.gain.exponentialRampToValueAtTime(.001,t+.4); n.start(t); }
@@ -612,7 +622,7 @@ function createUnit(owner,def,x,y){
   const u={id:nextId++,kind:'unit',owner,def,x,y,hp:def.hp,maxHp:def.hp,air:!!def.air,armor:def.ar,r:def.r,
     face:rand(0,TAU),cd:0,scanT:rand(0,.3),order:{t:'idle'},tmpTg:null,path:null,pi:0,dest:null,
     ax:x,ay:y,lastX:x,lastY:y,stuckT:0,repathT:0,flash:0,dead:false,vet:0,kills:0,
-    carry:0,hphase:'go',hTimer:0,node:null,depot:null};
+    carry:0,hphase:'go',hTimer:0,node:null,depot:null,cargo:[]};
   u.maxHp=unitHpMax(u); u.hp=u.maxHp;   // apply faction armor perks owned at build time
   G.units.push(u);
   if(def.harv) u.order={t:'harvest'};
@@ -624,7 +634,7 @@ function createBuilding(owner,def,tx,ty,instant){
     x:(tx+def.size/2)*TILE,y:(ty+def.size/2)*TILE,r:def.size*TILE/2,
     hp:instant?def.hp:def.hp*0.1,maxHp:def.hp,armor:'building',air:false,
     done:!!instant,prog:instant?def.t:0,queue:[],qProg:0,cd:0,scanT:rand(0,.3),turret:0,tmpTg:null,
-    superT:def.super?def.super.cd:0,
+    superT:def.super?def.super.cd:0, garrison:[],
     rally:{x:(tx+def.size/2)*TILE,y:(ty+def.size)*TILE+50},flash:0,dead:false};
   for(let y2=0;y2<def.size;y2++)for(let x2=0;x2<def.size;x2++) if(inMap(tx+x2,ty+y2)) blockGrid[tIdx(tx+x2,ty+y2)]=2;
   G.buildings.push(b);
@@ -664,6 +674,8 @@ function dealDamage(e,raw,wtype,srcEnt){
 }
 function killEnt(e,srcEnt){
   if(e.dead) return; e.dead=true;
+  if(e.cargo&&e.cargo.length){ if(e.owner===0)G.stats.lost+=e.cargo.length; e.cargo=[]; }        // passengers die with the transport
+  if(e.garrison&&e.garrison.length){ if(e.owner===0)G.stats.lost+=e.garrison.length; e.garrison=[]; } // garrisoned troops die with the building
   if(e.kind==='building'){ freeBuildingTiles(e); explosion(e.x,e.y,e.r*1.4);
     if(e.owner===1)G.stats.razed++; }
   else { explosion(e.x,e.y,e.air?22:e.r*1.6);
@@ -786,7 +798,7 @@ function fire(src,tg){
   const ew = (src.kind==='unit') ? {type:w.type,sp:w.sp,aoe:w.aoe,aa:w.aa,cd:w.cd,dmg:unitDmg(src)} : w;
   const mx=src.x+Math.cos(src.turret!==undefined&&src.kind==='building'?src.turret:src.face)*(src.r||10);
   const my=src.y+Math.sin(src.turret!==undefined&&src.kind==='building'?src.turret:src.face)*(src.r||10);
-  if(tileVisible(src.x,src.y)||src.owner===0) sfx(w.type==='bullet'||w.type==='sniper'?'shoot':'rocket');
+  sfx(w.type==='bullet'||w.type==='sniper'?'shoot':'rocket',src.x,src.y);   // FOV-gated inside sfx()
   G.parts.push({type:'flash',x:mx,y:my,life:.06,maxLife:.06,size:7,color:'#ffe9a0'});
   if(!w.sp){ // instant hit
     G.parts.push({type:'tracer',x:mx,y:my,x2:tg.x+rand(-4,4),y2:tg.y+rand(-4,4),life:.06,maxLife:.06,color:w.type==='flame'?'#ff8830':'#ffe9a0'});
@@ -846,6 +858,8 @@ function updateUnit(u,dt){
   const o=u.order;
   if(o.t==='build'){ updateBuild(u,dt); return; }
   if(o.t==='demolish'){ updateDemolish(u,dt); return; }
+  if(o.t==='board'){ updateBoard(u,dt); return; }
+  if(o.t==='garrison'){ updateGarrison(u,dt); return; }
   if(o.t==='harvest'&&u.def.harv){ updateHarvester(u,dt); return; }
   if(o.t==='move'){ if(stepPath(u,dt)){ u.order={t:'idle'}; u.ax=u.x; u.ay=u.y; } return; }
   if(o.t==='attack'){
@@ -863,7 +877,7 @@ function updateUnit(u,dt){
   }
   // idle: auto-acquire with leash
   if(u.def.builder){ const site=findBuildSite(u); if(site){ assignBuild(u,site); return; } }
-  if(u.def.harv){ if(G.supplies.some(s=>s.amount>0)) u.order={t:'harvest'}; return; }
+  if(u.def.harv&&u.cargo.length===0){ if(G.supplies.some(s=>s.amount>0)) u.order={t:'harvest'}; return; }
   u.scanT-=dt;
   if((!u.tmpTg||u.tmpTg.dead)&&u.scanT<=0){ u.scanT=.35; u.tmpTg=acquire(u); }
   if(u.tmpTg&&!u.tmpTg.dead){
@@ -920,6 +934,7 @@ function updateBuilding(b,dt){
     // construction is driven by a dozer working the site (see updateBuild); just watch for completion
     if(b.prog>=b.def.t){ b.done=true; b.hp=Math.min(b.maxHp,Math.max(b.hp,b.maxHp));
       if(b.def.k==='training'&&b.owner===0&&facOf(0).key==='USA') G.upgrades.warCollege=true;
+      if(b.def.super) onSuperBuilt(b);
     }
     return;
   }
@@ -960,6 +975,11 @@ function updateBuilding(b,dt){
       b.turret=angLerp(b.turret,Math.atan2(b.tmpTg.y-b.y,b.tmpTg.x-b.x),dt*8);
       if(eDist(b,b.tmpTg)<=b.def.w.rng&&b.cd<=0){ fire(b,b.tmpTg); b.cd=b.def.w.cd; }
     }
+    if(b.garrison&&b.garrison.length){   // garrisoned troops fire their own weapons from the building
+      for(const g of b.garrison){ g.cd=Math.max(0,(g.cd||0)-dt);
+        if(b.tmpTg&&!b.tmpTg.dead&&g.def.w&&g.cd<=0&&canHit(g,b.tmpTg)&&eDist(b,b.tmpTg)<=Math.max(b.def.w.rng,g.def.w.rng)){
+          g.x=b.x; g.y=b.y; g.face=b.turret; fire(g,b.tmpTg); g.cd=unitCd(g); } }
+    }
   }
 }
 
@@ -972,7 +992,14 @@ function fireSuper(b,x,y){
   G.shake=Math.min(16,G.shake+11);
   G.parts.push({type:'ring',x,y,life:.8,maxLife:.8,size:sp.aoe*1.4,color:'#ffd0a0'});
   if(b.owner===1&&G.pings.length<8) G.pings.push({x,y,t:2.5});
-  if(b.owner===0||tileVisible(x,y)) sfx('boom');
+  sfx('boom',x,y);   // super impact, FOV-gated
+}
+function setBanner(txt,color){ G.banner={txt,color,t:5}; }
+function onSuperBuilt(b){      // alert all players when a superweapon comes online
+  const sp=b.def.super;
+  if(b.owner===0) setBanner(sp.label+' ONLINE','#ffe14d');
+  else { setBanner('WARNING — ENEMY '+sp.label+' DETECTED','#ff5050'); if(G.pings.length<8) G.pings.push({x:b.x,y:b.y,t:3}); }
+  sfx('boom');   // non-positional alert blip
 }
 /* ---- projectiles / particles ---- */
 function updateProj(p,dt){
@@ -994,7 +1021,7 @@ function explosion(x,y,size){
   for(let i=0;i<Math.min(14,4+size/4);i++){ const a=rand(0,TAU),v=rand(30,140);
     G.parts.push({type:'spark',x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.2,.5),maxLife:.5,color:Math.random()<.5?'#ffb340':'#ff7030'}); }
   for(let i=0;i<Math.min(8,2+size/6);i++) G.parts.push({type:'smoke',x:x+rand(-8,8),y:y+rand(-8,8),vx:rand(-12,12),vy:rand(-30,-8),life:rand(.6,1.3),maxLife:1.3,size:rand(8,16)});
-  if(tileVisible(x,y)) { sfx('boom'); if(size>30) G.shake=Math.min(8,G.shake+size/12); }
+  if(sfxVol(x,y)>0){ sfx('boom',x,y); if(size>30) G.shake=Math.min(8,G.shake+size/12); }
 }
 function updateParts(dt){
   for(const p of G.parts){
@@ -1121,6 +1148,45 @@ function drawWall(c,b){
   c.restore();
 }
 
+/* ================= TRANSPORT & GARRISON ================= */
+function updateBoard(u,dt){
+  const tg=u.order.tg;
+  if(!tg||tg.dead||!tg.def.transport||tg.cargo.length>=tg.def.transport.cap){ u.order={t:'idle'}; u.dest=null; return; }
+  const d=eDist(u,tg)-tg.r;
+  if(d>14){ if(!u.dest||dist2(u.dest.x,u.dest.y,tg.x,tg.y)>60) setMove(u,tg.x,tg.y); stepPath(u,dt); return; }
+  boardUnit(u,tg);
+}
+function boardUnit(u,tg){     // removed from the field (marked dead so the frame filter drops it), kept in cargo
+  tg.cargo.push(u); u.dead=true; u._boarded=true; u.order={t:'idle'}; u.dest=null; u.path=null;
+  const i=G.sel.indexOf(u); if(i>=0) G.sel.splice(i,1);
+  if(tg.owner===0) G.parts.push({type:'text',x:tg.x,y:tg.y-16,txt:'▲ board',life:.7,maxLife:.7});
+}
+function unloadTransport(u){
+  if(!u||!u.cargo||!u.cargo.length) return;
+  for(const c of u.cargo){ const sp=clearWorldSpawn(u.x+rand(-22,22),u.y+rand(-10,28));
+    c.dead=false; c._boarded=false; c.x=sp.x; c.y=sp.y; c.ax=c.x; c.ay=c.y; c.order={t:'idle'}; c.dest=null; c.path=null; c.hphase='go'; c.node=null; c.tmpTg=null; G.units.push(c); }
+  u.cargo=[];
+  if(u.owner===0){ sfx('click'); G.parts.push({type:'ring',x:u.x,y:u.y,life:.5,maxLife:.5,size:26,color:'#9adfff'}); }
+}
+function updateGarrison(u,dt){
+  const b=u.order.b;
+  if(!b||b.dead||!b.def.garrison||b.garrison.length>=b.def.garrison){ u.order={t:'idle'}; u.dest=null; return; }
+  const d=eDist(u,b)-b.r;
+  if(d>16){ if(!u.dest) setMove(u,b.x,b.y); stepPath(u,dt); return; }
+  garrisonUnit(u,b);
+}
+function garrisonUnit(u,b){
+  b.garrison.push(u); u.dead=true; u._garrisoned=true; u.cd=0; u.order={t:'idle'}; u.dest=null; u.path=null;
+  const i=G.sel.indexOf(u); if(i>=0) G.sel.splice(i,1);
+  if(b.owner===0) G.parts.push({type:'text',x:b.x,y:b.y-14,txt:'▲ garrison',life:.7,maxLife:.7});
+}
+function ejectGarrison(b){
+  if(!b||!b.garrison||!b.garrison.length) return;
+  for(const g of b.garrison){ const sp=clearWorldSpawn(b.x+rand(-b.r,b.r),b.y+b.r+rand(0,22));
+    g.dead=false; g._garrisoned=false; g.x=sp.x; g.y=sp.y; g.ax=g.x; g.ay=g.y; g.order={t:'idle'}; g.dest=null; g.path=null; g.tmpTg=null; G.units.push(g); }
+  b.garrison=[];
+  if(b.owner===0){ sfx('click'); G.parts.push({type:'ring',x:b.x,y:b.y,life:.5,maxLife:.5,size:b.r+8,color:'#9adf6a'}); }
+}
 /* ================= AI ================= */
 function aiNotifyAttack(victim,attacker){
   if(G.time<G.ai.defendCD||!attacker) return;
@@ -1264,10 +1330,20 @@ function issueCommand(wx,wy){
   const units=own.filter(e=>e.kind==='unit');
   if(!units.length) return;
   const tg=entAt(wx,wy);
-  if(tg&&tg.owner===0&&tg.kind==='building'){   // builder + own building -> demolish
+  if(tg&&tg.owner===0&&tg.kind==='building'){   // own building: infantry garrison, else dozer demolish
+    const inf=units.filter(u=>u.def.cls==='inf'&&!u.def.builder);
+    if(tg.def.garrison&&inf.length){ let sp=tg.def.garrison-tg.garrison.length, any=false;
+      for(const u of inf){ if(sp<=0)break; u.order={t:'garrison',b:tg}; u.tmpTg=null; u.dest=null; sp--; any=true; }
+      if(any){ G.parts.push({type:'ring',x:tg.x,y:tg.y,life:.4,maxLife:.4,size:tg.r+6,color:'#9adf6a'}); sfx('click'); return; } }
     const builders=units.filter(u=>u.def.builder);
     if(builders.length){ for(const u of builders){ u.order={t:'demolish',b:tg}; u.tmpTg=null; u.dest=null; }
       G.parts.push({type:'ring',x:tg.x,y:tg.y,life:.4,maxLife:.4,size:24,color:'#ff7a3c'}); sfx('click'); return; }
+  }
+  if(tg&&tg.owner===0&&tg.kind==='unit'&&tg.def.transport){   // load infantry into a transport
+    const inf=units.filter(u=>u.def.cls==='inf'&&!u.def.builder&&u!==tg);
+    let sp=tg.def.transport.cap-tg.cargo.length, any=false;
+    for(const u of inf){ if(sp<=0)break; u.order={t:'board',tg}; u.tmpTg=null; u.dest=null; sp--; any=true; }
+    if(any){ G.parts.push({type:'ring',x:tg.x,y:tg.y,life:.4,maxLife:.4,size:22,color:'#9adfff'}); sfx('click'); return; }
   }
   if(tg&&tg.owner===1){ // attack
     for(const u of units){ if(u.def.harv){ } else { u.order={t:'attack',tg}; u.tmpTg=null; u.dest=null; } }
@@ -1677,6 +1753,8 @@ function drawUnit(c,u){
     c.strokeStyle='#ffdf5a'; c.lineWidth=1.7; c.lineCap='round'; c.lineJoin='round';
     for(let i=0;i<u.vet;i++){ const yy=i*2.6; c.beginPath(); c.moveTo(-3.4,yy+2); c.lineTo(0,yy); c.lineTo(3.4,yy+2); c.stroke(); }
     c.restore(); }
+  if(u.def.transport&&u.cargo&&u.cargo.length){ c.fillStyle='#bfe9ff'; c.font='bold 9px sans-serif'; c.textAlign='center'; c.textBaseline='alphabetic';
+    c.fillText('▲'+u.cargo.length,0,-((cls==='heli')?16:14)); }
   c.restore();
 }
 function drawBuilding(c,b){
@@ -1819,8 +1897,32 @@ function render(){
     ctx.strokeStyle='#9ef060'; ctx.lineWidth=1.5;
     ctx.strokeRect(Math.min(G.drag.x0,G.drag.x1),Math.min(G.drag.y0,G.drag.y1),Math.abs(G.drag.x1-G.drag.x0),Math.abs(G.drag.y1-G.drag.y0));
   }
+  drawSuperHud(ctx);
 }
 
+/* ---- superweapon status HUD + alert banner (screen space) ---- */
+function drawSuperHud(c){
+  if(G.state!=='play') return;
+  const cx=(innerWidth-uiSidebar())/2;
+  c.save(); c.textAlign='center'; c.textBaseline='top';
+  let y=46;
+  for(const b of G.buildings){
+    if(b.dead||!b.def.super||!b.done) continue;
+    const sp=b.def.super, ready=b.superT<=0, mine=b.owner===0, secs=Math.max(0,Math.ceil(b.superT));
+    const txt=(mine?'':'⚠ ')+sp.label+(ready?'  READY':'  '+Math.floor(secs/60)+':'+String(secs%60).padStart(2,'0'));
+    c.font='bold 13px sans-serif';
+    const w=c.measureText(txt).width+20;
+    c.fillStyle='rgba(8,10,6,.72)'; c.fillRect(cx-w/2,y,w,19);
+    c.fillStyle=mine?(ready?'#ffe14d':'#e8c060'):(ready?'#ff3b3b':'#ff7a5a');
+    if(ready) c.globalAlpha=0.6+0.4*Math.sin(G.time*6);
+    c.fillText(txt,cx,y+3); c.globalAlpha=1;
+    y+=22;
+  }
+  if(G.banner){ c.globalAlpha=0.55+0.45*Math.sin(G.time*9);
+    c.font='bold 22px sans-serif'; c.fillStyle=G.banner.color;
+    c.fillText(G.banner.txt,cx,y+8); c.globalAlpha=1; }
+  c.restore();
+}
 /* ---- minimap ---- */
 const mini=document.getElementById('minimap'), mctx=mini.getContext('2d');
 let MSC=216/WW;
@@ -1942,7 +2044,11 @@ function updateHud(){
     if(e.kind==='unit'&&!e.def.harv){ const req=e.vet<3?Math.max(1,Math.round(VET_REQ[e.vet]*(perkLvl(e.owner,'drill')?0.7:1))):0;
       s+='<br>Rank '+(e.vet||0)+' '+('★'.repeat(e.vet))+' · Kills '+(e.kills||0)+(e.vet<3?' <span style="color:#9aa37f">(next: '+req+')</span>':' <span style="color:#ffe14d">(elite)</span>'); }
     if(e.kind==='unit'&&e.def.harv) s+='<br>Cargo $'+e.carry+' / '+e.def.harv.cap;
+    if(e.kind==='unit'&&e.def.transport){ s+='<br>Troops '+e.cargo.length+' / '+e.def.transport.cap;
+      if(e.cargo.length) s+='<button class="perkBtn actBtn" data-act="unload">⬇ Unload Troops</button>'; }
     if(e.kind==='building'&&e.queue&&e.queue.length) s+='<br>Queue: '+e.queue.map(d=>d.i).join(' ');
+    if(e.kind==='building'&&e.def.garrison){ s+='<br>Garrison '+e.garrison.length+' / '+e.def.garrison;
+      if(e.garrison.length) s+='<button class="perkBtn actBtn" data-act="eject">⬇ Eject Troops</button>'; }
     if(e.kind==='building'&&!e.done) s+='<br>Constructing… '+Math.floor(e.prog/e.def.t*100)+'%';
     if(e.kind==='building'&&e.def.super&&e.done){ s+=e.superT<=0
       ? '<br><b style="color:#ffe14d">SUPERWEAPON READY</b><br><i style="color:#9aa37f">right-click / tap a target</i>'
@@ -2043,6 +2149,7 @@ function update(dt){
   G.projs=G.projs.filter(p=>!p.dead);
   G.supplies=G.supplies.filter(s=>s.amount>0);
   for(const p of G.pings) p.t-=dt; G.pings=G.pings.filter(p=>p.t>0);
+  if(G.banner){ G.banner.t-=dt; if(G.banner.t<=0) G.banner=null; }
   // fog
   G.fogT-=dt; if(G.fogT<=0){ updateFog(); G.fogT=0.22; }
   // AI
@@ -2120,7 +2227,10 @@ function initDebug(){
       b.classList.add('sel'); sfx('click'); };
   });
   pickRow('data-d',v=>chosenDiff=v); pickRow('data-m',v=>chosenMap=v); pickRow('data-p',v=>chosenPos=v);
-  $('selInfo').addEventListener('click',ev=>{ const b=ev.target.closest('.perkBtn'); if(b&&!b.disabled){ buyPerk(0,b.dataset.perk); updateHud(); } });
+  $('selInfo').addEventListener('click',ev=>{
+    const ab=ev.target.closest('.actBtn');
+    if(ab){ const e=G.sel[0]; if(e){ if(ab.dataset.act==='unload') unloadTransport(e); else if(ab.dataset.act==='eject') ejectGarrison(e); } updateHud(); return; }
+    const b=ev.target.closest('.perkBtn'); if(b&&!b.disabled){ buyPerk(0,b.dataset.perk); updateHud(); } });
   initDebug();
   $('credit-bg').onclick=()=>{ easterEggActivated=true; $('credit-bg').classList.add('active'); };
   $('btnStart').onclick=()=>{ if(chosenFac){ if(easterEggActivated) $('btnDbg').classList.add('debug-visible'); audioInit(); startGame(chosenFac,chosenDiff,chosenMap,chosenPos); } };
