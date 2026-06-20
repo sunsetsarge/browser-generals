@@ -848,12 +848,26 @@ function updateUnit(u,dt){
 
 /* ---- building update ---- */
 function spawnPoint(b){
-  for(let r=0;r<4;r++) for(let dy=-r;dy<=b.size+r;dy++) for(let dx=-r;dx<=b.size+r;dx++){
+  for(let r=0;r<20;r++) for(let dy=-r;dy<=b.size+r;dy++) for(let dx=-r;dx<=b.size+r;dx++){
     if(dx>-r&&dx<b.size+r&&dy>-r&&dy<b.size+r) continue;
     const tx=b.tx+dx, ty=b.ty+dy;
     if(!isBlocked(tx,ty)) return {x:tx*TILE+TILE/2,y:ty*TILE+TILE/2};
   }
-  return {x:b.x,y:b.y+b.r+20};
+  // fallback: spiral from building center in world-space
+  return clearWorldSpawn(b.x,b.y+b.r+TILE);
+}
+// Find a clear world-space position starting from (wx,wy).
+// Checks blockGrid AND avoids overlapping existing units.
+function clearWorldSpawn(wx,wy){
+  const tx0=Math.floor(wx/TILE),ty0=Math.floor(wy/TILE);
+  for(let r=0;r<25;r++) for(let dy=-r;dy<=r;dy++) for(let dx=-r;dx<=r;dx++){
+    if(Math.abs(dx)!==r&&Math.abs(dy)!==r) continue;
+    const tx=tx0+dx,ty=ty0+dy;
+    if(isBlocked(tx,ty)) continue;
+    const px=tx*TILE+TILE/2,py=ty*TILE+TILE/2;
+    if(!G.units.some(u=>!u.dead&&Math.hypot(u.x-px,u.y-py)<TILE)) return {x:px,y:py};
+  }
+  return {x:wx,y:wy}; // ultimate fallback
 }
 // heroes (commandos) owned + in production for a side — only one allowed at a time
 function heroCount(owner){
@@ -1921,7 +1935,9 @@ function dbgSpawn(){
   const v=document.getElementById('dbgUnit').value; if(!v) return;
   const [fk,k]=v.split(':'); const def=FACTIONS[fk].units.find(u=>u.k===k); if(!def) return;
   const cx=clamp(G.cam.x+(innerWidth-uiSidebar())/2,40,WW-40), cy=clamp(G.cam.y+innerHeight/2,40,WH-40);
-  for(let i=0;i<DBG.qty;i++){ const u=createUnit(DBG.spawnOwner,def,cx+rand(-44,44),cy+rand(-44,44));
+  for(let i=0;i<DBG.qty;i++){
+    const sp=clearWorldSpawn(cx+rand(-64,64),cy+rand(-64,64));
+    const u=createUnit(DBG.spawnOwner,def,sp.x,sp.y);
     if(def.harv) u.order={t:'harvest'}; else { u.order={t:'idle'}; u.ax=u.x; u.ay=u.y; } }
   sfx('click');
 }
