@@ -1535,7 +1535,9 @@ function drawUnit(c,u){
   } // end vector/sprite branch
   if(cls==='heli'){ // spinning rotor overlay (over sprite or vector body)
     const rr=spr?spr.size*0.55:15;
-    c.save(); c.rotate((G.time*26+u.id)%TAU);
+    c.save();
+    if(spr&&spr.ready>=spr.n) c.translate(0,-spr.size*0.22); // sprite fuselage centers at y=-0.22*size; sit blades on it
+    c.rotate((G.time*26+u.id)%TAU);
     c.strokeStyle='rgba(30,30,30,.5)'; c.lineWidth=2.2; c.lineCap='round';
     c.beginPath(); c.moveTo(-rr,0); c.lineTo(rr,0); c.moveTo(0,-rr); c.lineTo(0,rr); c.stroke();
     c.strokeStyle='rgba(90,90,90,.10)'; c.lineWidth=1; c.beginPath(); c.arc(0,0,rr,0,TAU); c.stroke();
