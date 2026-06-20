@@ -344,6 +344,29 @@ GLA:{key:'GLA',name:'GLA',color:'#b5a642',dark:'#5a531f',
  ]},
 };
 
+/* ===== Build-out additions: dozers, faction walls, transport, garrison =====
+   Patched onto FACTIONS so the base roster above stays readable. */
+FACTIONS.USA.units.push({k:'bulldozer',n:'Bulldozer',i:'🚜',cls:'truck',cost:600,t:8,hp:400,sp:72,ar:'light',r:13,sight:190,src:'dozer',builder:true});
+FACTIONS.CHINA.units.push({k:'dozer',n:'Dozer',i:'🚜',cls:'truck',cost:600,t:8,hp:430,sp:68,ar:'light',r:13,sight:190,src:'dozer',builder:true});
+FACTIONS.USA.buildings.find(b=>b.k==='hq').trains='dozer';      // Command Center builds Bulldozers
+FACTIONS.CHINA.buildings.find(b=>b.k==='hq').trains='dozer';    // Command Center builds Dozers
+FACTIONS.GLA.units.find(u=>u.k==='worker').builder=true;        // GLA Worker harvests AND builds
+/* Walls: destructible, no weapon; placed by click-drag and built by a dozer/worker over time. */
+for(const _fk of Object.keys(FACTIONS)){
+  FACTIONS[_fk].buildings.push({k:'wall',n:'Wall',i:'🧱',cost:60,t:2.2,hp:650,size:1,pow:0,wall:true});
+}
+/* Transports (keep harvesting on the Chinook; Helix gains a hold; GLA gets the Battle Bus). */
+(function(){ const ch=FACTIONS.USA.units.find(u=>u.k==='chinook'); if(ch){ ch.transport={cap:12}; ch.n='Chinook'; }
+  const hx=FACTIONS.CHINA.units.find(u=>u.k==='helix'); if(hx){ hx.transport={cap:12}; }
+  FACTIONS.GLA.units.push({k:'battlebus',n:'Battle Bus',i:'🚌',cls:'truck',cost:800,t:9,hp:480,sp:120,ar:'light',r:14,sight:220,src:'factory',transport:{cap:12},w:{type:'bullet',dmg:8,rng:150,cd:.3}});
+})();
+/* Garrison: Fire Base becomes a big cannon; Bunker & Tunnel share the garrison logic. */
+(function(){ const fb=FACTIONS.USA.buildings.find(b=>b.k==='firebase');
+  if(fb){ fb.garrison=4; fb.w={type:'cannon',dmg:55,rng:330,cd:1.6,sp:430}; }
+  const bk=FACTIONS.CHINA.buildings.find(b=>b.k==='bunker'); if(bk) bk.garrison=5;
+  const tn=FACTIONS.GLA.buildings.find(b=>b.k==='tunnel'); if(tn) tn.garrison=5;
+})();
+
 const DIFFS={
   easy:  {income:1, wave:2500, interval:130, aiStart:3000, grace:280},
   normal:{income:3, wave:4000, interval:95,  aiStart:5000, grace:200},
@@ -821,6 +844,8 @@ function updateUnit(u,dt){
       G.parts.push({type:'smoke',x:u.x+rand(-6,6),y:u.y+11,vx:rand(-8,8),vy:rand(-2,3),life:.4,maxLife:.4,size:rand(3,6),color:'#cfc4a0'}); }
   }
   const o=u.order;
+  if(o.t==='build'){ updateBuild(u,dt); return; }
+  if(o.t==='demolish'){ updateDemolish(u,dt); return; }
   if(o.t==='harvest'&&u.def.harv){ updateHarvester(u,dt); return; }
   if(o.t==='move'){ if(stepPath(u,dt)){ u.order={t:'idle'}; u.ax=u.x; u.ay=u.y; } return; }
   if(o.t==='attack'){
@@ -837,6 +862,7 @@ function updateUnit(u,dt){
     return;
   }
   // idle: auto-acquire with leash
+  if(u.def.builder){ const site=findBuildSite(u); if(site){ assignBuild(u,site); return; } }
   if(u.def.harv){ if(G.supplies.some(s=>s.amount>0)) u.order={t:'harvest'}; return; }
   u.scanT-=dt;
   if((!u.tmpTg||u.tmpTg.dead)&&u.scanT<=0){ u.scanT=.35; u.tmpTg=acquire(u); }
@@ -891,7 +917,7 @@ function updateBuilding(b,dt){
   b.flash=Math.max(0,b.flash-dt);
   const rate=lowPower(b.owner)?0.5:1;
   if(!b.done){
-    b.prog+=dt; b.hp=Math.min(b.maxHp,b.hp+b.maxHp*0.9*dt/b.def.t);
+    // construction is driven by a dozer working the site (see updateBuild); just watch for completion
     if(b.prog>=b.def.t){ b.done=true; b.hp=Math.min(b.maxHp,Math.max(b.hp,b.maxHp));
       if(b.def.k==='training'&&b.owner===0&&facOf(0).key==='USA') G.upgrades.warCollege=true;
     }
@@ -1003,12 +1029,96 @@ function canPlace(def,tx,ty,owner){
   const cx=(tx+def.size/2)*TILE, cy=(ty+def.size/2)*TILE;
   return G.buildings.some(b=>b.owner===owner&&!b.dead&&dist2(b.x,b.y,cx,cy)<300+def.size*20);
 }
+function tileCenter(tx,ty,def){ return {x:(tx+(def?def.size/2:0.5))*TILE, y:(ty+(def?def.size/2:0.5))*TILE}; }
 function tryPlaceAt(def,tx,ty,owner){
   if(!canPlace(def,tx,ty,owner)) return false;
   if(moneyOf(owner)<def.cost) return false;
+  if(!hasBuilder(owner)){                       // dozer-required build
+    if(owner===0){ const w=tileCenter(tx,ty,def); G.parts.push({type:'text',x:w.x,y:w.y,txt:'Need a Dozer!',life:1.3,maxLife:1.3}); sfx('click'); }
+    return false;
+  }
   addMoney(owner,-def.cost);
-  createBuilding(owner,def,tx,ty,false);
+  const b=createBuilding(owner,def,tx,ty,false);
+  const dz=findBuilder(owner,b);                 // dispatch nearest free builder to the site
+  if(dz) assignBuild(dz,b);
   return true;
+}
+/* ================= DOZER / BUILDER BUILD SYSTEM ================= */
+const BUILD_REACH=TILE*1.8;     // how close a builder must be to work a site
+function hasBuilder(o){ return G.units.some(u=>!u.dead&&u.def.builder&&u.owner===o); }
+function builderBusy(u){ return u.order.t==='build'||u.order.t==='demolish'; }
+function findBuilder(o,b){       // nearest free builder (idle / harvesting), else null
+  let best=null,bd=1e9;
+  for(const u of G.units){ if(u.dead||u.owner!==o||!u.def.builder||builderBusy(u)) continue;
+    const d=eDist(u,b); if(d<bd){bd=d;best=u;} }
+  return best;
+}
+function siteHasBuilder(b){ return G.units.some(u=>!u.dead&&u.def.builder&&u.owner===b.owner&&u.order.t==='build'&&u.order.b===b); }
+function findBuildSite(u){       // nearest unbuilt friendly building that lacks a builder
+  let best=null,bd=1e9;
+  for(const b of G.buildings){ if(b.dead||b.done||b.owner!==u.owner) continue;
+    if(siteHasBuilder(b)) continue;
+    const d=eDist(u,b); if(d<bd){bd=d;best=b;} }
+  return best;
+}
+function assignBuild(u,b){ u.order={t:'build',b}; u.tmpTg=null; u.dest=null; u.path=null; u.node=null; }
+function updateBuild(u,dt){
+  const b=u.order.b;
+  if(!b||b.dead||b.done){ u.order={t:'idle'}; u.dest=null; u.path=null; return; }
+  const d=eDist(u,b)-b.r;
+  if(d>BUILD_REACH){ if(!u.dest) setMove(u,b.x,b.y+b.r+10); stepPath(u,dt); return; }
+  u.dest=null; u.path=null;
+  u.face=angLerp(u.face,Math.atan2(b.y-u.y,b.x-u.x),dt*8);
+  const rate=lowPower(u.owner)?0.5:1;
+  b.prog+=dt*rate;
+  b.hp=Math.min(b.maxHp, b.maxHp*0.1 + b.maxHp*0.9*clamp(b.prog/b.def.t,0,1));
+  if(Math.random()<dt*14) G.parts.push({type:'spark',x:b.x+rand(-b.r,b.r),y:b.y+rand(-b.r,b.r),vx:rand(-22,22),vy:rand(-45,-12),life:.4,maxLife:.4,color:'#ffd070'});
+}
+function updateDemolish(u,dt){
+  const b=u.order.b;
+  if(!b||b.dead){ u.order={t:'idle'}; u.dest=null; return; }
+  const d=eDist(u,b)-b.r;
+  if(d>BUILD_REACH){ if(!u.dest) setMove(u,b.x,b.y+b.r+10); stepPath(u,dt); return; }
+  u.dest=null; u.path=null;
+  const refund=Math.round(b.def.cost*0.4); addMoney(u.owner,refund);   // partial refund
+  if(u.owner===0) G.parts.push({type:'text',x:b.x,y:b.y-10,txt:'+$'+refund,life:1,maxLife:1});
+  b.dead=true; freeBuildingTiles(b); explosion(b.x,b.y,b.r*0.9);
+  u.order={t:'idle'};
+}
+/* ================= FACTION WALLS (click-drag line of segments) ================= */
+function wallLineTiles(tx0,ty0,tx1,ty1){
+  const tiles=[], dx=tx1-tx0, dy=ty1-ty0, steps=Math.max(Math.abs(dx),Math.abs(dy));
+  if(steps===0) return [[tx0,ty0]];
+  for(let i=0;i<=steps;i++){ const t=i/steps; tiles.push([Math.round(tx0+dx*t),Math.round(ty0+dy*t)]); }
+  return tiles;
+}
+function commitWallLine(){
+  if(!G.wallDrag||!G.pFac) return;
+  const def=G.pFac.buildings.find(b=>b.k==='wall'); if(!def) return;
+  const wd=G.wallDrag;
+  for(const [tx,ty] of wallLineTiles(wd.tx0,wd.ty0,wd.tx1,wd.ty1)){
+    if(G.money<def.cost) break;
+    tryPlaceAt(def,tx,ty,0);     // each segment is its own dozer-built site
+  }
+}
+function drawWall(c,b){
+  const f=facOf(b.owner), px=b.tx*TILE, py=b.ty*TILE, w=b.size*TILE, k=f.key;
+  c.save();
+  if(k==='USA'){            // concrete barrier, blue cap
+    c.fillStyle='#9aa0a6'; c.fillRect(px+5,py+5,w-10,w-10);
+    c.fillStyle='#c2c7cc'; c.fillRect(px+5,py+5,w-10,5);
+    c.strokeStyle=f.color; c.lineWidth=2; c.strokeRect(px+6,py+6,w-12,w-12);
+  } else if(k==='CHINA'){   // dark stone rampart, red banding
+    c.fillStyle='#6d4f3a'; c.fillRect(px+4,py+4,w-8,w-8);
+    c.fillStyle='#5a3f2f'; for(let i=0;i<2;i++) c.fillRect(px+5,py+6+i*9,w-10,4);
+    c.strokeStyle=f.color; c.lineWidth=2; c.strokeRect(px+5,py+5,w-10,w-10);
+  } else {                  // GLA sandbags / scrap
+    c.fillStyle='#b9a86a';
+    for(const o of [[10,10],[21,9],[30,13],[13,23],[27,25]]){ c.beginPath(); c.arc(px+o[0],py+o[1],6,0,TAU); c.fill(); }
+    c.fillStyle='#8c7d49'; c.fillRect(px+6,py+19,w-12,7);
+    c.strokeStyle=f.color; c.lineWidth=1.5; c.strokeRect(px+5,py+5,w-10,w-10);
+  }
+  c.restore();
 }
 
 /* ================= AI ================= */
@@ -1042,6 +1152,10 @@ function aiPlace(def){
 function aiTick(){
   const f=G.aFac, diff=G.diff;
   if(!myBuildings(1).length) return;
+  // dozers (required to build; keep ~2 — GLA builds with its workers)
+  const dozDef=f.units.find(u=>u.builder&&!u.harv);
+  if(dozDef){ const dozN=G.units.filter(u=>u.owner===1&&!u.dead&&u.def.builder).length;
+    if(dozN<2&&hasDone(1,'hq')&&G.aiMoney>dozDef.cost+300) queueUnit(1,dozDef); }
   // power
   const powDef=f.buildings.find(b=>b.k==='power');
   if(powDef){ const [p,u]=powerOf(1); if(u+2>p&&G.aiMoney>powDef.cost) aiPlace(powDef); }
@@ -1150,6 +1264,11 @@ function issueCommand(wx,wy){
   const units=own.filter(e=>e.kind==='unit');
   if(!units.length) return;
   const tg=entAt(wx,wy);
+  if(tg&&tg.owner===0&&tg.kind==='building'){   // builder + own building -> demolish
+    const builders=units.filter(u=>u.def.builder);
+    if(builders.length){ for(const u of builders){ u.order={t:'demolish',b:tg}; u.tmpTg=null; u.dest=null; }
+      G.parts.push({type:'ring',x:tg.x,y:tg.y,life:.4,maxLife:.4,size:24,color:'#ff7a3c'}); sfx('click'); return; }
+  }
   if(tg&&tg.owner===1){ // attack
     for(const u of units){ if(u.def.harv){ } else { u.order={t:'attack',tg}; u.tmpTg=null; u.dest=null; } }
     G.parts.push({type:'ring',x:tg.x,y:tg.y,life:.35,maxLife:.35,size:22,color:'#e05545'});
@@ -1188,14 +1307,16 @@ canvas.addEventListener('mousedown',e=>{
   const w=toWorld(e.clientX,e.clientY);
   if(e.button===0){
     if(G.placing){
-      const def=G.placing, tx=Math.floor(w.x/TILE-def.size/2+0.5), ty=Math.floor(w.y/TILE-def.size/2+0.5);
+      const def=G.placing;
+      if(def.wall){ const wtx=Math.floor(w.x/TILE), wty=Math.floor(w.y/TILE); G.wallDrag={tx0:wtx,ty0:wty,tx1:wtx,ty1:wty}; return; }
+      const tx=Math.floor(w.x/TILE-def.size/2+0.5), ty=Math.floor(w.y/TILE-def.size/2+0.5);
       if(tryPlaceAt(def,tx,ty,0)){ sfx('click'); if(!e.shiftKey) G.placing=null; }
       return;
     }
     if(G.amoveMode){ issueAMove(w.x,w.y); G.amoveMode=false; return; }
     G.drag={x0:e.clientX,y0:e.clientY,x1:e.clientX,y1:e.clientY,moved:false};
   } else if(e.button===2){
-    if(G.placing){ G.placing=null; return; }
+    if(G.placing){ G.placing=null; G.wallDrag=null; return; }
     if(G.amoveMode){ G.amoveMode=false; return; }
     issueCommand(w.x,w.y);
   } else if(e.button===1){
@@ -1204,6 +1325,7 @@ canvas.addEventListener('mousedown',e=>{
 });
 canvas.addEventListener('mousemove',e=>{
   G.mouse.sx=e.clientX; G.mouse.sy=e.clientY; G.mouse.seen=true;
+  if(G.wallDrag){ const w=toWorld(e.clientX,e.clientY); G.wallDrag.tx1=Math.floor(w.x/TILE); G.wallDrag.ty1=Math.floor(w.y/TILE); }
   if(G.drag){ G.drag.x1=e.clientX; G.drag.y1=e.clientY;
     if(Math.abs(G.drag.x1-G.drag.x0)+Math.abs(G.drag.y1-G.drag.y0)>8) G.drag.moved=true; }
   if(mmDragging){
@@ -1215,6 +1337,7 @@ canvas.addEventListener('mousemove',e=>{
 });
 addEventListener('mouseup',e=>{
   if(e.button===1){ mmDragging=false; return; }
+  if(e.button===0&&G.wallDrag){ commitWallLine(); G.wallDrag=null; if(!e.shiftKey) G.placing=null; sfx('click'); return; }
   if(e.button!==0||!G.drag) return;
   const d=G.drag; G.drag=null;
   if(G.state!=='play') return;
@@ -1330,7 +1453,7 @@ let lastGroupKey='',lastGroupT=0;
 addEventListener('keydown',e=>{
   if(G.state!=='play') return;
   const k=e.key.toLowerCase();
-  if(k==='escape'){ if(G.placing)G.placing=null; else if(G.amoveMode)G.amoveMode=false; else if(swTargeting){swTargeting=false;canvas.style.cursor='';updateSwBtn();} else clearSel(); }
+  if(k==='escape'){ if(G.placing){G.placing=null;G.wallDrag=null;} else if(G.amoveMode)G.amoveMode=false; else if(swTargeting){swTargeting=false;canvas.style.cursor='';updateSwBtn();} else clearSel(); }
   else if(k==='a'&&!e.ctrlKey){ if(G.sel.some(s=>s.kind==='unit'&&s.owner===0)) G.amoveMode=true; }
   else if(k==='s'){ for(const u of G.sel) if(u.kind==='unit'&&u.owner===0){ u.order={t:'idle'}; u.dest=null; u.path=null; u.tmpTg=null; u.ax=u.x; u.ay=u.y; } }
   else if(k==='p'){ G.paused=!G.paused; document.getElementById('btnPause').textContent=G.paused?'▶':'⏸'; }
@@ -1516,6 +1639,7 @@ function drawUnit(c,u){
       c.fillStyle=ac; for(const yy of [-4,-1.4,1.4,4]) c.fillRect(4,yy-0.7,5,1.7);
     } else if(role==='arty'){ c.strokeStyle=dark; c.lineWidth=5; c.beginPath(); c.moveTo(-4,0); c.lineTo(14,-5); c.stroke();
       c.fillStyle='#333'; c.fillRect(-9,-4,6,8); c.fillStyle=ac; c.beginPath(); c.arc(14,-5,1.9,0,TAU); c.fill();
+    } else if(u.def.builder){ c.fillStyle='#2c2c2c'; c.fillRect(10,-10,3,20); c.fillStyle='#f2c14e'; c.fillRect(12,-11,3,22); // dozer blade
     } else { c.fillStyle=dark; c.fillRect(-4,-3,8,6); // mounted gun (humvee / technical)
       c.strokeStyle=dark; c.lineWidth=2.4; c.beginPath(); c.moveTo(2,0); c.lineTo(13,0); c.stroke(); }
     if(u.def.harv&&u.carry>0){ c.fillStyle='#ffd455'; c.fillRect(-6,-4,8,8); }
@@ -1563,8 +1687,9 @@ function drawBuilding(c,b){
   c.fillStyle=b.done?'#3a3f30':'#2c3024'; c.fillRect(px+4,py+4,w-8,w-8);
   c.strokeStyle=col; c.lineWidth=3; c.strokeRect(px+1.5,py+1.5,w-3,w-3);
   if(b.done){
-    c.font=(b.size===1?'18px':'26px')+' serif'; c.textAlign='center'; c.textBaseline='middle';
-    c.fillText(b.def.i,b.x,b.y-(b.def.w?5:0));
+    if(b.def.wall){ drawWall(c,b); }
+    else { c.font=(b.size===1?'18px':'26px')+' serif'; c.textAlign='center'; c.textBaseline='middle';
+      c.fillText(b.def.i,b.x,b.y-(b.def.w?5:0)); }
     if(b.def.w){ // turret barrel
       c.strokeStyle='#222'; c.lineWidth=4;
       c.beginPath(); c.moveTo(b.x,b.y); c.lineTo(b.x+Math.cos(b.turret)*w*.55,b.y+Math.sin(b.turret)*w*.55); c.stroke();
@@ -1674,6 +1799,16 @@ function render(){
     ctx.strokeRect(tx*TILE,ty*TILE,def.size*TILE,def.size*TILE);
     ctx.font='22px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.globalAlpha=.8;
     ctx.fillStyle='#fff'; ctx.fillText(def.i,(tx+def.size/2)*TILE,(ty+def.size/2)*TILE); ctx.globalAlpha=1;
+  }
+  if(G.wallDrag){   // wall click-drag preview: one ghost tile per segment
+    const wdef=G.pFac.buildings.find(b=>b.k==='wall');
+    let funds=G.money;
+    for(const [tx,ty] of wallLineTiles(G.wallDrag.tx0,G.wallDrag.ty0,G.wallDrag.tx1,G.wallDrag.ty1)){
+      const ok=canPlace(wdef,tx,ty,0)&&funds>=wdef.cost; if(canPlace(wdef,tx,ty,0)) funds-=wdef.cost;
+      ctx.fillStyle=ok?'rgba(126,200,80,.35)':'rgba(224,85,69,.35)';
+      ctx.fillRect(tx*TILE,ty*TILE,TILE,TILE);
+      ctx.strokeStyle=ok?'#7ec850':'#e05545'; ctx.lineWidth=2; ctx.strokeRect(tx*TILE+1,ty*TILE+1,TILE-2,TILE-2);
+    }
   }
   if(G.amoveMode){ const w=toWorld(G.mouse.sx,G.mouse.sy);
     ctx.strokeStyle='#e05545'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(w.x,w.y,12,0,TAU); ctx.stroke();
@@ -1838,6 +1973,8 @@ function placeBase(owner,base,fac){
   createBuilding(owner,fac.buildings.find(b=>b.k==='barracks'),tx,ty+3,true);
   const harv=fac.units.find(u=>u.harv);
   createUnit(owner,harv,(tx+4)*TILE,(ty+2)*TILE);
+  const dozer=fac.units.find(u=>u.builder&&!u.harv);   // USA Bulldozer / China Dozer (GLA worker already builds)
+  if(dozer) createUnit(owner,dozer,(tx-3)*TILE,(ty+2)*TILE);
   const rifle=fac.units[0], rocket=fac.units[1];
   for(let i=0;i<3;i++){ const u=createUnit(owner,rifle,(tx-2+i*2)*TILE,(ty+5)*TILE); u.ax=u.x;u.ay=u.y; }
   for(let i=0;i<2;i++){ const u=createUnit(owner,rocket,(tx-1+i*2)*TILE,(ty+6)*TILE); u.ax=u.x;u.ay=u.y; }
@@ -1915,8 +2052,8 @@ function update(dt){
   // win/lose
   G.winT-=dt;
   if(G.winT<=0){ G.winT=1;
-    if(!G.buildings.some(b=>b.owner===0&&!b.dead)) endGame(false);
-    else if(!G.buildings.some(b=>b.owner===1&&!b.dead)) endGame(true);
+    if(!G.buildings.some(b=>b.owner===0&&!b.dead&&!b.def.wall)) endGame(false);
+    else if(!G.buildings.some(b=>b.owner===1&&!b.dead&&!b.def.wall)) endGame(true);
   }
 }
 
