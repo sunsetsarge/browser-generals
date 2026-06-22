@@ -1638,11 +1638,13 @@ function drawUnit(c,u){
   if(spr&&spr.ready>=spr.n){   // ---- directional sprite (pick nearest of N facings) ----
     const im=spr.img[dirIndex(u.face,spr.n)];
     if(im&&im.naturalHeight){ const h=spr.size, w=im.naturalWidth/im.naturalHeight*h, dy=-h*0.72, nW=im.naturalWidth, nH=im.naturalHeight;
-      if(cls==='inf'&&u.moving){   // running gait: hold the torso, swing the legs from the waist (pendulum shear)
-        const shear=Math.sin(G.time*11+u.id*2.1)*0.32, splitH=h*0.54, splitS=nH*0.54;
-        c.drawImage(im,0,0,nW,splitS,-w/2,dy,w,splitH);                              // upper body (still)
-        c.save(); c.translate(0,dy+splitH); c.transform(1,0,shear,1,0,0);
-        c.drawImage(im,0,splitS,nW,nH-splitS,-w/2,0,w,h-splitH); c.restore();        // legs (swung)
+      if(cls==='inf'&&u.moving){   // running juice on one static top-down sprite: footfall squash + sway (no skew/warp)
+        const ph=G.time*11+u.id*2.1, f=Math.abs(Math.sin(ph));
+        c.save();
+        c.rotate(Math.sin(G.time*5.5+u.id*2.1)*0.05);   // gentle weight shift, not a sideways skew
+        c.scale(1+0.06*(1-f), 1-0.09*(1-f));            // squash+spread on footfall, tall mid-stride (anchored near the feet)
+        c.drawImage(im,-w/2,dy,w,h);
+        c.restore();
       } else c.drawImage(im,-w/2,dy,w,h);
     }
   } else {
