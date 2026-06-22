@@ -1633,19 +1633,12 @@ function drawUnit(c,u){
   if(u.flash>0){ c.globalAlpha=.85; }
   const cls=u.def.cls;
   if(u.recoil) c.translate(-Math.cos(u.face)*u.recoil,-Math.sin(u.face)*u.recoil);   // firing kickback
-  if(cls==='inf'&&u.moving){ c.translate(0,-Math.abs(Math.sin(G.time*11+u.id*2.1))*1.7); } // walk bob (vertical; legs swung below)
+  /* infantry no longer bob/squash while moving — a single top-down sprite can't show a gait; motion reads from sliding */ // walk bob (vertical; legs swung below)
   const spr=SPRITES[u.def.k];
   if(spr&&spr.ready>=spr.n){   // ---- directional sprite (pick nearest of N facings) ----
     const im=spr.img[dirIndex(u.face,spr.n)];
     if(im&&im.naturalHeight){ const h=spr.size, w=im.naturalWidth/im.naturalHeight*h, dy=-h*0.72, nW=im.naturalWidth, nH=im.naturalHeight;
-      if(cls==='inf'&&u.moving){   // running juice on one static top-down sprite: footfall squash + sway (no skew/warp)
-        const ph=G.time*11+u.id*2.1, f=Math.abs(Math.sin(ph));
-        c.save();
-        c.rotate(Math.sin(G.time*5.5+u.id*2.1)*0.05);   // gentle weight shift, not a sideways skew
-        c.scale(1+0.06*(1-f), 1-0.09*(1-f));            // squash+spread on footfall, tall mid-stride (anchored near the feet)
-        c.drawImage(im,-w/2,dy,w,h);
-        c.restore();
-      } else c.drawImage(im,-w/2,dy,w,h);
+      c.drawImage(im,-w/2,dy,w,h);   // clean directional sprite — no squash/rotate (they warped facing + gummy-squished)
     }
   } else {
   c.save(); // ---- body (may be rotated by facing) ----
