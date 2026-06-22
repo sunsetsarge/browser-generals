@@ -939,6 +939,7 @@ function updateBuilding(b,dt){
     return;
   }
   if(b.def.income) addMoney(b.owner,b.def.income*dt);
+  if(b.done&&b.hp<b.maxHp*0.5&&Math.random()<dt*(b.hp<b.maxHp*0.25?5:2)) G.parts.push({type:'smoke',x:b.x+rand(-b.r*0.4,b.r*0.4),y:b.y-rand(0,b.r*0.4),vx:rand(-5,5),vy:rand(-16,-7),life:rand(.8,1.7),maxLife:1.7,size:rand(4,9),color:'#3a3a3a'});
   // superweapon: charge up; the AI fires automatically at the player's base when ready
   if(b.def.super){
     if(b.superT>0) b.superT=Math.max(0,b.superT-dt*rate);
@@ -1623,8 +1624,17 @@ function loadDirSprites(key,base,n,size){
  ['rebel',30],['rpg',30],['terrorist',30],['jarmen',30],['worker',30],
  // GLA vehicles
  ['cycle',32],['technical',34],['buggy',34],['quad',32],
- ['scorpion',36],['marauder',40],['bombtruck',34],['toxin',36],['scud',44]]
+ ['scorpion',36],['marauder',40],['bombtruck',34],['toxin',36],['scud',44],
+ // build-out: China Supply Truck (sprites dropped upstream) + new dozers/transport
+ ['truck',42],['bulldozer',36],['dozer',36],['battlebus',40]]
  .forEach(a=>loadDirSprites(a[0],'assets/'+a[0],8,a[1]));
+// building sprites: up to 3 health states per type (bld_<k>_0 healthy .. _2 critical); emoji fallback
+const BLD_SPRITES={};
+['hq','power','supply','barracks','training','factory','air','def','firebase','strategy','particle','bunker','propaganda','nuke','market','tunnel','palace','scudstorm']
+ .forEach(k=>{ const states=[]; for(let i=0;i<3;i++){ const im=new Image(), o={img:im,ready:false}; im.onload=()=>{o.ready=true;}; im.onerror=()=>{o.ready=false;}; im.src='assets/bld_'+k+'_'+i+'.png'; states.push(o); } BLD_SPRITES[k]=states; });
+function bldSprite(b){ const st=BLD_SPRITES[b.def.k]; if(!st) return null; const fr=b.hp/b.maxHp, idx=fr>0.66?0:fr>0.33?1:2;
+  for(let i=idx;i<3;i++) if(st[i]&&st[i].ready&&st[i].img.naturalHeight) return st[i].img;
+  for(let i=idx;i>=0;i--) if(st[i]&&st[i].ready&&st[i].img.naturalHeight) return st[i].img; return null; }
 function drawUnit(c,u){
   const f=facOf(u.owner), bc=unitColors(u.def,f), col=bc.body, dark=bc.dark, s=u.def.scale||1;
   const role=unitRole(u.def), ac=ROLE_ACCENT[role];
@@ -1752,6 +1762,15 @@ function drawUnit(c,u){
     c.fillText('▲'+u.cargo.length,0,-((cls==='heli')?16:14)); }
   c.restore();
 }
+function drawBldDamage(c,b,px,py,w){   // stable procedural scorch/cracks so building health reads at a glance
+  const heavy=b.hp<b.maxHp*0.33, seed=b.id*131;
+  const rnd=n=>{ const x=Math.sin(seed+n*12.9898)*43758.5453; return x-Math.floor(x); };
+  c.save(); c.fillStyle='rgba(20,14,8,0.55)';
+  const marks=heavy?7:3;
+  for(let i=0;i<marks;i++){ const mx=px+5+rnd(i)*(w-10), my=py+5+rnd(i+40)*(w-10), rr=2.5+rnd(i+80)*(heavy?6:4); c.beginPath(); c.arc(mx,my,rr,0,TAU); c.fill(); }
+  if(heavy){ c.strokeStyle='rgba(0,0,0,0.6)'; c.lineWidth=1.4; for(let i=0;i<3;i++){ c.beginPath(); c.moveTo(px+rnd(i+7)*w,py+2); c.lineTo(px+rnd(i+18)*w,py+w-2); c.stroke(); } }
+  c.restore();
+}
 function drawBuilding(c,b){
   const f=facOf(b.owner), col=f.color, dark=f.dark, px=b.tx*TILE, py=b.ty*TILE, w=b.size*TILE;
   c.save();
@@ -1761,8 +1780,11 @@ function drawBuilding(c,b){
   c.strokeStyle=col; c.lineWidth=3; c.strokeRect(px+1.5,py+1.5,w-3,w-3);
   if(b.done){
     if(b.def.wall){ drawWall(c,b); }
-    else { c.font=(b.size===1?'18px':'26px')+' serif'; c.textAlign='center'; c.textBaseline='middle';
-      c.fillText(b.def.i,b.x,b.y-(b.def.w?5:0)); }
+    else { const bs=bldSprite(b);
+      if(bs){ const sc=(w-2)/Math.max(bs.naturalWidth,bs.naturalHeight), dw=bs.naturalWidth*sc, dh=bs.naturalHeight*sc; c.drawImage(bs,b.x-dw/2,b.y-dh/2,dw,dh); }
+      else { c.font=(b.size===1?'18px':'26px')+' serif'; c.textAlign='center'; c.textBaseline='middle';
+        c.fillText(b.def.i,b.x,b.y-(b.def.w?5:0)); } }
+    if(!b.def.wall&&b.hp<b.maxHp*0.66) drawBldDamage(c,b,px,py,w);
     if(b.def.w){ // turret barrel
       c.strokeStyle='#222'; c.lineWidth=4;
       c.beginPath(); c.moveTo(b.x,b.y); c.lineTo(b.x+Math.cos(b.turret)*w*.55,b.y+Math.sin(b.turret)*w*.55); c.stroke();
