@@ -1615,7 +1615,8 @@ function loadDirSprites(key,base,n,size){
     im.src=base+'_'+i+'.png'; set.img[i]=im; }
 }
 // register available unit sprites (8-direction frames in assets/<key>_0..7.png); missing -> vector fallback
-[['humvee',34],['crusader',38],['paladin',40],   // infantry use the vector top-down soldier (correct facing); only vehicles/air get sprites
+[['ranger',30],['missile',30],['sniper',30],['burton',32],['redguard',30],['hunter',30],['lotus',30],['rebel',30],['rpg',30],['terrorist',30],['jarmen',32],['worker',30],   // top-down infantry (regenerated, correct facing)
+ ['humvee',34],['crusader',38],['paladin',40],
  ['avenger',38],['tomahawk',38],['raptor',48],['aurora',50],['comanche',46],['chinook',46],
  // China
  ['dragon',36],['gattling',36],['battlemaster',38],
