@@ -1626,7 +1626,7 @@ function loadDirSprites(key,base,n,size){
  ['cycle',32],['technical',34],['buggy',34],['quad',32],
  ['scorpion',36],['marauder',40],['bombtruck',34],['toxin',36],['scud',44],
  // build-out: China Supply Truck (sprites dropped upstream) + new dozers/transport
- ['truck',42],['bulldozer',36],['dozer',36],['battlebus',40]]
+ ['truck',46],['bulldozer',48],['dozer',48],['battlebus',48]]
  .forEach(a=>loadDirSprites(a[0],'assets/'+a[0],8,a[1]));
 // building sprites: up to 3 health states per type (bld_<k>_0 healthy .. _2 critical); emoji fallback
 const BLD_SPRITES={};
@@ -1774,17 +1774,18 @@ function drawBldDamage(c,b,px,py,w){   // stable procedural scorch/cracks so bui
 function drawBuilding(c,b){
   const f=facOf(b.owner), col=f.color, dark=f.dark, px=b.tx*TILE, py=b.ty*TILE, w=b.size*TILE;
   c.save();
-  c.fillStyle='rgba(0,0,0,.3)'; c.fillRect(px+4,py+5,w,w);
-  c.fillStyle=dark; c.fillRect(px,py,w,w);
-  c.fillStyle=b.done?'#3a3f30':'#2c3024'; c.fillRect(px+4,py+4,w-8,w-8);
-  c.strokeStyle=col; c.lineWidth=3; c.strokeRect(px+1.5,py+1.5,w-3,w-3);
+  const bs = (b.done && !b.def.wall) ? bldSprite(b) : null;
+  if(!(b.done && (bs || b.def.wall))){   // placeholder box only for emoji buildings / under construction
+    c.fillStyle='rgba(0,0,0,.3)'; c.fillRect(px+4,py+5,w,w);
+    c.fillStyle=dark; c.fillRect(px,py,w,w);
+    c.fillStyle=b.done?'#3a3f30':'#2c3024'; c.fillRect(px+4,py+4,w-8,w-8);
+    c.strokeStyle=col; c.lineWidth=3; c.strokeRect(px+1.5,py+1.5,w-3,w-3);
+  }
   if(b.done){
     if(b.def.wall){ drawWall(c,b); }
-    else { const bs=bldSprite(b);
-      if(bs){ const sc=(w-2)/Math.max(bs.naturalWidth,bs.naturalHeight), dw=bs.naturalWidth*sc, dh=bs.naturalHeight*sc; c.drawImage(bs,b.x-dw/2,b.y-dh/2,dw,dh); }
-      else { c.font=(b.size===1?'18px':'26px')+' serif'; c.textAlign='center'; c.textBaseline='middle';
-        c.fillText(b.def.i,b.x,b.y-(b.def.w?5:0)); } }
-    if(!b.def.wall&&b.hp<b.maxHp*0.66) drawBldDamage(c,b,px,py,w);
+    else if(bs){ const sc=(w-2)/Math.max(bs.naturalWidth,bs.naturalHeight); c.drawImage(bs,b.x-bs.naturalWidth*sc/2,b.y-bs.naturalHeight*sc/2,bs.naturalWidth*sc,bs.naturalHeight*sc); }
+    else { c.font=(b.size===1?'18px':'26px')+' serif'; c.textAlign='center'; c.textBaseline='middle';
+      c.fillText(b.def.i,b.x,b.y-(b.def.w?5:0)); }
     if(b.def.w){ // turret barrel
       c.strokeStyle='#222'; c.lineWidth=4;
       c.beginPath(); c.moveTo(b.x,b.y); c.lineTo(b.x+Math.cos(b.turret)*w*.55,b.y+Math.sin(b.turret)*w*.55); c.stroke();
