@@ -1129,24 +1129,31 @@ function commitWallLine(){
     tryPlaceAt(def,tx,ty,0);     // each segment is its own dozer-built site
   }
 }
+let wallSet=new Set();   // "tx,ty,owner" for every live wall segment; rebuilt each frame in render()
 function drawWall(c,b){
-  const f=facOf(b.owner), px=b.tx*TILE, py=b.ty*TILE, w=b.size*TILE, k=f.key;
+  const f=facOf(b.owner), px=b.tx*TILE, py=b.ty*TILE, w=TILE, k=f.key, o=b.owner;
+  const has=(tx,ty)=>wallSet.has(tx+','+ty+','+o);
+  // autotile: extend to the tile edge toward any adjacent wall, inset (capped) on open sides
+  const N=has(b.tx,b.ty-1), S=has(b.tx,b.ty+1), E=has(b.tx+1,b.ty), Wn=has(b.tx-1,b.ty), m=6;
+  const L=px+(Wn?0:m), R=px+w-(E?0:m), T=py+(N?0:m), B=py+w-(S?0:m);
+  let base,top;
+  if(k==='USA'){ base='#9aa0a6'; top='#c7ccd1'; }
+  else if(k==='CHINA'){ base='#6d4f3a'; top='#836048'; }
+  else { base='#b9a86a'; top='#cdbd82'; }
   c.save();
-  if(k==='USA'){            // concrete barrier, blue cap
-    c.fillStyle='#9aa0a6'; c.fillRect(px+5,py+5,w-10,w-10);
-    c.fillStyle='#c2c7cc'; c.fillRect(px+5,py+5,w-10,5);
-    c.strokeStyle=f.color; c.lineWidth=2; c.strokeRect(px+6,py+6,w-12,w-12);
-  } else if(k==='CHINA'){   // dark stone rampart, red banding
-    c.fillStyle='#6d4f3a'; c.fillRect(px+4,py+4,w-8,w-8);
-    c.fillStyle='#5a3f2f'; for(let i=0;i<2;i++) c.fillRect(px+5,py+6+i*9,w-10,4);
-    c.strokeStyle=f.color; c.lineWidth=2; c.strokeRect(px+5,py+5,w-10,w-10);
-  } else {                  // GLA sandbags / scrap
-    c.fillStyle='#b9a86a';
-    for(const o of [[10,10],[21,9],[30,13],[13,23],[27,25]]){ c.beginPath(); c.arc(px+o[0],py+o[1],6,0,TAU); c.fill(); }
-    c.fillStyle='#8c7d49'; c.fillRect(px+6,py+19,w-12,7);
-    c.strokeStyle=f.color; c.lineWidth=1.5; c.strokeRect(px+5,py+5,w-10,w-10);
-  }
+  if(!b.done) c.globalAlpha=0.45;                                   // under construction: translucent, still connected
+  c.fillStyle='rgba(0,0,0,.22)'; c.fillRect(L+2,T+3,R-L,B-T);       // drop shadow
+  c.fillStyle=base; c.fillRect(L,T,R-L,B-T);                        // body
+  c.fillStyle=top;  c.fillRect(L,T,R-L,Math.max(3,Math.min(5,(B-T)*0.3))); // top highlight
+  if(k==='GLA'){ c.fillStyle='#8c7d49'; for(let yy=T+5;yy<B-2;yy+=8) for(let xx=L+5;xx<R-2;xx+=9){ c.beginPath(); c.arc(xx,yy,3,0,TAU); c.fill(); } }
+  c.strokeStyle=f.color; c.lineWidth=1.6; c.beginPath();            // accent only on OPEN edges -> seamless joins
+  if(!Wn){ c.moveTo(L+0.8,T); c.lineTo(L+0.8,B); }
+  if(!E){  c.moveTo(R-0.8,T); c.lineTo(R-0.8,B); }
+  if(!N){  c.moveTo(L,T+0.8); c.lineTo(R,T+0.8); }
+  if(!S){  c.moveTo(L,B-0.8); c.lineTo(R,B-0.8); }
+  c.stroke();
   c.restore();
+  if(!b.done){ c.fillStyle='#e8c060'; c.font='9px sans-serif'; c.textAlign='center'; c.textBaseline='middle'; c.fillText(Math.floor(b.prog/b.def.t*100)+'%',b.x,b.y); }
 }
 
 /* ================= TRANSPORT & GARRISON ================= */
@@ -1773,6 +1780,7 @@ function drawBldDamage(c,b,px,py,w){   // stable procedural scorch/cracks so bui
 function drawBuilding(c,b){
   const f=facOf(b.owner), col=f.color, dark=f.dark, px=b.tx*TILE, py=b.ty*TILE, w=b.size*TILE;
   c.save();
+  if(b.def.wall){ drawWall(c,b); if(b.flash>0){ c.fillStyle='rgba(255,80,40,.25)'; c.fillRect(px,py,w,w); } c.restore(); return; }
   const bs = (b.done && !b.def.wall) ? bldSprite(b) : null;
   if(!(b.done && (bs || b.def.wall))){   // placeholder box only for emoji buildings / under construction
     c.fillStyle='rgba(0,0,0,.3)'; c.fillRect(px+4,py+5,w,w);
@@ -1856,6 +1864,7 @@ function render(){
   // visible filtering helpers
   const vis=e=>e.owner===0||(e.kind==='building'?tileExplored(e.x,e.y):tileVisible(e.x,e.y));
   const inView=e=>e.x>G.cam.x-80&&e.x<G.cam.x+canvas.width+80&&e.y>G.cam.y-80&&e.y<G.cam.y+canvas.height+80;
+  wallSet.clear(); for(const b of G.buildings){ if(b.def.wall&&!b.dead) wallSet.add(b.tx+','+b.ty+','+b.owner); }
   for(const b of G.buildings) if(!b.dead&&vis(b)&&inView(b)) drawBuilding(ctx,b);
   // air shadows
   for(const u of G.units) if(!u.dead&&u.air&&vis(u)&&inView(u)){ ctx.fillStyle='rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(u.x+8,u.y+14,10,5,0,0,TAU); ctx.fill(); }
