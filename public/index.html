@@ -1641,6 +1641,17 @@ const BLD_SPRITES={};
 function bldSprite(b){ const st=BLD_SPRITES[b.def.k]; if(!st) return null; const fr=b.hp/b.maxHp, idx=fr>0.66?0:fr>0.33?1:2;
   for(let i=idx;i<3;i++) if(st[i]&&st[i].ready&&st[i].img.naturalHeight) return st[i].img;
   for(let i=idx;i>=0;i--) if(st[i]&&st[i].ready&&st[i].img.naturalHeight) return st[i].img; return null; }
+// Faction color wash for shared building art (interim until per-faction building sprites exist). Cached per sprite+color.
+const _tintCache={};
+function tintedSprite(im,color){
+  if(!im||!im.naturalWidth) return null;
+  const key=im.src+'|'+color; let t=_tintCache[key];
+  if(!t){ t=document.createElement('canvas'); t.width=im.naturalWidth; t.height=im.naturalHeight;
+    const tx=t.getContext('2d'); tx.drawImage(im,0,0);
+    tx.globalCompositeOperation='source-atop'; tx.fillStyle=color; tx.fillRect(0,0,t.width,t.height);
+    _tintCache[key]=t; }
+  return t;
+}
 function drawUnit(c,u){
   const f=facOf(u.owner), bc=unitColors(u.def,f), col=bc.body, dark=bc.dark, s=u.def.scale||1;
   const role=unitRole(u.def), ac=ROLE_ACCENT[role];
@@ -1790,7 +1801,9 @@ function drawBuilding(c,b){
   }
   if(b.done){
     if(b.def.wall){ drawWall(c,b); }
-    else if(bs){ const sc=(w-2)/Math.max(bs.naturalWidth,bs.naturalHeight); c.drawImage(bs,b.x-bs.naturalWidth*sc/2,b.y-bs.naturalHeight*sc/2,bs.naturalWidth*sc,bs.naturalHeight*sc); }
+    else if(bs){ const sc=(w-2)/Math.max(bs.naturalWidth,bs.naturalHeight), dw=bs.naturalWidth*sc, dh=bs.naturalHeight*sc, dx=b.x-dw/2, dy=b.y-dh/2;
+      c.drawImage(bs,dx,dy,dw,dh);
+      const tint=tintedSprite(bs,col); if(tint){ c.save(); c.globalAlpha=0.32; c.drawImage(tint,dx,dy,dw,dh); c.restore(); } }
     else { c.font=(b.size===1?'18px':'26px')+' serif'; c.textAlign='center'; c.textBaseline='middle';
       c.fillText(b.def.i,b.x,b.y-(b.def.w?5:0)); }
     if(b.def.w){ // turret barrel
