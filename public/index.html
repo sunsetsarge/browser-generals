@@ -483,9 +483,18 @@ function facOf(o){return o===0?G.pFac:G.aFac;}
 function moneyOf(o){return o===0?G.money:G.aiMoney;}
 function addMoney(o,a){ if(o===0)G.money=Math.max(0,G.money+a); else G.aiMoney=Math.max(0,G.aiMoney+a); }
 /* ================= MAP ================= */
-let terr=new Uint8Array(MW*MH);     // 0 open, 1 blocked terrain
-let blockGrid=new Uint8Array(MW*MH);// 0 open, 1 terrain, 2 building
-let decor=[];                       // {x,y,r,kind:'tree'|'rock'}
+// WS-2.1 biome palettes (SPEC §5.1). One chosen per match; drives ground/decor/water.
+const BIOMES={
+  desert:  {key:'desert',   base:'#a8915c', mottleA:'rgba(140,118,72,',  mottleB:'rgba(190,168,110,', dune:'rgba(120,100,60,',  road:'#7c6842', roadRut:'rgba(60,48,28,', treeA:'#4d6b2e', treeB:'#5f823a', treeKind:'scrub', rockA:'#8d8678', rockB:'#a39c8c', waterAllowed:true,  maxPonds:2},
+  steppe:  {key:'steppe',   base:'#8f9455', mottleA:'rgba(108,112,60,',  mottleB:'rgba(150,158,96,',  dune:'rgba(90,96,50,',   road:'#6d6a3c', roadRut:'rgba(48,46,24,', treeA:'#3c5a26', treeB:'#4e7030', treeKind:'scrub', rockA:'#7f7d74', rockB:'#9a988c', waterAllowed:true,  maxPonds:3},
+  badlands:{key:'badlands', base:'#a3714f', mottleA:'rgba(132,86,56,',   mottleB:'rgba(190,140,104,', dune:'rgba(120,72,44,',  road:'#7a5236', roadRut:'rgba(58,36,22,', treeA:'#6b5a33', treeB:'#8a744a', treeKind:'cactus',rockA:'#93513a', rockB:'#b06a4c', waterAllowed:false, maxPonds:0},
+};
+let curBiome=BIOMES.desert;         // set per match in startGame
+let terr=new Uint8Array(MW*MH);     // 0 open, 1 blocked terrain, 3 water (impassable)
+let blockGrid=new Uint8Array(MW*MH);// 0 open, >0 blocked (1 terrain, 2 building, 3 water)
+let decor=[];                       // {x,y,r,kind:'tree'|'rock'|'cactus'|'shrub',hue}
+let roads=[];                       // WS-2.1 carved corridor waypoints [{x0,y0,x1,y1}] world coords for road stamping
+let waterTiles=[];                  // WS-2.2 [{tx,ty}] water tile list for shimmer overlay
 const tIdx=(tx,ty)=>ty*MW+tx;
 function inMap(tx,ty){return tx>=0&&ty>=0&&tx<MW&&ty<MH;}
 function isBlocked(tx,ty){return !inMap(tx,ty)||blockGrid[tIdx(tx,ty)]>0;}
@@ -509,8 +518,24 @@ function setupBases(posKey){
   let best=corners[0],bd=-1; for(const c of corners){ const d=dist2(c[0],c[1],P_BASE.tx,P_BASE.ty); if(d>bd){bd=d;best=c;} }
   A_BASE.tx=best[0]; A_BASE.ty=best[1];
 }
+// WS-2.3 the carve() used by both genMap and the reachability repair loop.
+// 5-wide (x∈[-2,2]) corridor cut; clears trees/rocks AND water (never wall in through a pond).
+function carveCorridor(x0,y0,x1,y1){
+  const steps=Math.max(2,Math.hypot(x1-x0,y1-y0));
+  for(let i=0;i<=steps*2;i++){ const t=i/(steps*2),cx=Math.round(x0+(x1-x0)*t),cy=Math.round(y0+(y1-y0)*t);
+    for(let y=-2;y<=2;y++)for(let x=-2;x<=2;x++){ const tx=cx+x,ty=cy+y; if(inMap(tx,ty)) terr[tIdx(tx,ty)]=0; } }
+}
 function genMap(){
-  terr.fill(0); decor=[]; G.supplies=[];
+  // Reachability guarantee with up to 3 whole-map regenerations (SPEC §5).
+  for(let regen=0;regen<4;regen++){
+    genMapOnce(false);
+    if(reachabilityGuarantee()) return;   // PASS within 12 carve iterations
+  }
+  throw new Error('genMap: reachability guarantee failed after 3 regenerations');
+}
+// core generator; reachability guarantee is run separately by genMap so regen is possible.
+function genMapOnce(guard){
+  terr.fill(0); decor=[]; G.supplies=[]; roads=[]; waterTiles=[];
   const area=MW*MH, scaleN=area/(64*64);   // scale feature counts to map area
   // tree clumps
   for(let c=0;c<Math.round(55*scaleN);c++){
@@ -524,18 +549,50 @@ function genMap(){
   for(let c=0;c<Math.round(22*scaleN);c++){ const tx=randi(1,MW-2),ty=randi(1,MH-2); terr[tIdx(tx,ty)]=2; if(Math.random()<.5&&inMap(tx+1,ty)) terr[tIdx(tx+1,ty)]=2; }
   // clear base areas
   for(const b of [P_BASE,A_BASE]) for(let y=-9;y<=9;y++)for(let x=-9;x<=9;x++){ const tx=b.tx+x,ty=b.ty+y; if(inMap(tx,ty)&&x*x+y*y<81) terr[tIdx(tx,ty)]=0; }
-  // carve corridor between the two bases plus two bent alternate routes via thirds of the map
-  const carve=(x0,y0,x1,y1)=>{ const steps=Math.max(2,Math.hypot(x1-x0,y1-y0)); for(let i=0;i<=steps*2;i++){ const t=i/(steps*2),cx=Math.round(x0+(x1-x0)*t),cy=Math.round(y0+(y1-y0)*t); for(let y=-2;y<=2;y++)for(let x=-2;x<=2;x++){ const tx=cx+x,ty=cy+y; if(inMap(tx,ty)) terr[tIdx(tx,ty)]=0; } } };
+  // carve corridor between the two bases plus two bent alternate routes via thirds of the map.
+  // WS-2.1: record each carved segment as a road waypoint so renderTerrain can stamp packed-dirt.
+  const carve=(x0,y0,x1,y1)=>{ carveCorridor(x0,y0,x1,y1); roads.push({x0:x0*TILE+TILE/2,y0:y0*TILE+TILE/2,x1:x1*TILE+TILE/2,y1:y1*TILE+TILE/2}); };
   carve(P_BASE.tx,P_BASE.ty,A_BASE.tx,A_BASE.ty);
   const b1=[Math.round(MW*0.3),Math.round(MH*0.3)], b2=[Math.round(MW*0.7),Math.round(MH*0.7)];
   carve(P_BASE.tx,P_BASE.ty,b1[0],b1[1]); carve(b1[0],b1[1],A_BASE.tx,A_BASE.ty);
   carve(P_BASE.tx,P_BASE.ty,b2[0],b2[1]); carve(b2[0],b2[1],A_BASE.tx,A_BASE.ty);
-  // decor objects from terrain
-  for(let ty=0;ty<MH;ty++)for(let tx=0;tx<MW;tx++){ const v=terr[tIdx(tx,ty)];
-    if(v===1) decor.push({x:tx*TILE+TILE/2+rand(-6,6),y:ty*TILE+TILE/2+rand(-6,6),r:rand(12,17),kind:'tree'});
-    else if(v===2){ decor.push({x:tx*TILE+TILE/2,y:ty*TILE+TILE/2,r:rand(13,17),kind:'rock'}); terr[tIdx(tx,ty)]=1; }
+  // WS-2.2 water ponds: 0..maxPonds, blob-grown 4..12 tiles, >=12 tiles from any base
+  // center, never on carved corridors (corridor tiles are terr===0 with a road passing near).
+  const bi=curBiome||BIOMES.desert;
+  if(bi.waterAllowed && bi.maxPonds>0){
+    const nPonds=randi(0,bi.maxPonds);
+    const onRoad=(tx,ty)=>{ const wx=tx*TILE+TILE/2, wy=ty*TILE+TILE/2;
+      for(const rd of roads){ const dx=rd.x1-rd.x0, dy=rd.y1-rd.y0, L2=dx*dx+dy*dy||1;
+        let t=((wx-rd.x0)*dx+(wy-rd.y0)*dy)/L2; t=clamp(t,0,1);
+        const px=rd.x0+dx*t, py=rd.y0+dy*t; if(Math.hypot(wx-px,wy-py) < TILE*3) return true; } return false; };
+    const farFromBase=(tx,ty)=> dist2(tx,ty,P_BASE.tx,P_BASE.ty)>=12 && dist2(tx,ty,A_BASE.tx,A_BASE.ty)>=12;
+    for(let p=0;p<nPonds;p++){
+      let seedOk=null;
+      for(let tries=0;tries<40&&!seedOk;tries++){
+        const tx=randi(3,MW-4), ty=randi(3,MH-4);
+        if(farFromBase(tx,ty)&&!onRoad(tx,ty)) seedOk=[tx,ty];
+      }
+      if(!seedOk) continue;
+      const target=randi(4,12), open=[seedOk], placed=[];
+      terr[tIdx(seedOk[0],seedOk[1])]=3; placed.push(seedOk);
+      let guardN=0;
+      while(placed.length<target && open.length && guardN++<200){
+        const [ox,oy]=open[randi(0,open.length-1)];
+        const nb=[[ox+1,oy],[ox-1,oy],[ox,oy+1],[ox,oy-1]]; const [nx,ny]=nb[randi(0,3)];
+        if(!inMap(nx,ny)||nx<2||ny<2||nx>=MW-2||ny>=MH-2) continue;
+        if(terr[tIdx(nx,ny)]===3) continue;
+        if(!farFromBase(nx,ny)||onRoad(nx,ny)) continue;
+        terr[tIdx(nx,ny)]=3; placed.push([nx,ny]); open.push([nx,ny]);
+      }
+      for(const [tx,ty] of placed) waterTiles.push({tx,ty});
+    }
   }
-  blockGrid.set(terr);
+  // decor objects from terrain (skip water tiles — they stay terr===3)
+  for(let ty=0;ty<MH;ty++)for(let tx=0;tx<MW;tx++){ const v=terr[tIdx(tx,ty)];
+    if(v===1){ const cactus=bi.treeKind==='cactus'&&Math.random()<.5; decor.push({x:tx*TILE+TILE/2+rand(-6,6),y:ty*TILE+TILE/2+rand(-6,6),r:rand(12,17),kind:cactus?'cactus':(Math.random()<.25?'shrub':'tree'),hue:rand(-0.12,0.12)}); }
+    else if(v===2){ decor.push({x:tx*TILE+TILE/2,y:ty*TILE+TILE/2,r:rand(13,17),kind:'rock',hue:rand(-0.1,0.1)}); terr[tIdx(tx,ty)]=1; }
+  }
+  blockGrid.set(terr);   // water (3) lands in blockGrid as 3 -> >0 -> blocked
   // supply clusters: two near each base + scattered (count scales with map area)
   const clusters=[];
   const near=(b)=>{ for(let i=0;i<2;i++){ const a=rand(0,TAU),r=rand(6,10); clusters.push([clamp(Math.round(b.tx+Math.cos(a)*r),2,MW-3),clamp(Math.round(b.ty+Math.sin(a)*r),2,MH-3)]); } };
@@ -550,29 +607,164 @@ function genMap(){
     }
   }
 }
+// WS-2.3 the ALGORITHMIC no-wall-in guarantee (SPEC §5).
+// Runs on the finished map (terrain+rocks+water+supplies). Mutates terr/blockGrid via carve.
+function reachabilityGuarantee(){
+  const N=MW*MH;
+  const floodFrom=(sx,sy)=>{ const vis=new Uint8Array(N); if(!inMap(sx,sy)||blockGrid[tIdx(sx,sy)]>0) return vis;
+    const q=[sy*MW+sx]; vis[q[0]]=1; let head=0;
+    while(head<q.length){ const idx=q[head++], tx=idx%MW, ty=(idx/MW)|0;
+      const nb=[[tx+1,ty],[tx-1,ty],[tx,ty+1],[tx,ty-1]];
+      for(const [nx,ny] of nb){ if(nx<0||ny<0||nx>=MW||ny>=MH) continue; const ni=ny*MW+nx; if(vis[ni]||blockGrid[ni]>0) continue; vis[ni]=1; q.push(ni); } }
+    return vis; };
+  const openCount=()=>{ let n=0; for(let i=0;i<N;i++) if(blockGrid[i]===0) n++; return n; };
+  const nbrInComp=(tx,ty,vis)=>{ const nb=[[tx+1,ty],[tx-1,ty],[tx,ty+1],[tx,ty-1],[tx,ty]];
+    for(const [nx,ny] of nb){ if(nx<0||ny<0||nx>=MW||ny>=MH) continue; if(!blockGrid[ny*MW+nx]&&vis[ny*MW+nx]) return true; } return false; };
+  // centroid of the largest open region NOT in comp (for the <90% offender)
+  const largestUnreached=(vis)=>{ const seen=new Uint8Array(N); let best=null,bestSz=0;
+    for(let i=0;i<N;i++){ if(blockGrid[i]||vis[i]||seen[i]) continue;
+      const q=[i]; seen[i]=1; let head=0,sx=0,sy=0,sz=0;
+      while(head<q.length){ const idx=q[head++], tx=idx%MW, ty=(idx/MW)|0; sx+=tx; sy+=ty; sz++;
+        const nb=[[tx+1,ty],[tx-1,ty],[tx,ty+1],[tx,ty-1]];
+        for(const [nx,ny] of nb){ if(nx<0||ny<0||nx>=MW||ny>=MH) continue; const ni=ny*MW+nx; if(blockGrid[ni]||vis[ni]||seen[ni]) continue; seen[ni]=1; q.push(ni); } }
+      if(sz>bestSz){ bestSz=sz; best=[Math.round(sx/sz),Math.round(sy/sz)]; } }
+    return best; };
+
+  for(let iter=0;iter<12;iter++){
+    const vis=floodFrom(P_BASE.tx,P_BASE.ty);
+    const bad=[];
+    if(!nbrInComp(A_BASE.tx,A_BASE.ty,vis)) bad.push([A_BASE.tx,A_BASE.ty]);
+    for(const s of G.supplies){ if(!nbrInComp(s.tx,s.ty,vis)){ bad.push([s.tx,s.ty]); } }
+    const open=openCount(), compSz=vis.reduce((a,v)=>a+v,0);
+    if(open>0 && compSz/open < 0.90){ const c=largestUnreached(vis); if(c) bad.push(c); }
+    if(!bad.length) return true;                 // PASS
+    carveCorridor(P_BASE.tx,P_BASE.ty,bad[0][0],bad[0][1]);
+    blockGrid.set(terr);
+    // corridor may have run through a pond — drop those water tiles from the shimmer list
+    waterTiles=waterTiles.filter(w=>terr[tIdx(w.tx,w.ty)]===3);
+  }
+  return false;
+}
 
 /* terrain pre-render */
-let terrCanvas=null, miniTerr=null;
+let terrCanvas=null, miniTerr=null, waterFrames=[null,null];
+// WS-2.1 seeded 2-octave value noise. Grid of random values at a given cell size,
+// bilinearly interpolated. Returns a sampler noise(x,y)->[-1,1].
+function makeValueNoise(cell,seed){
+  const gw=Math.ceil(WW/cell)+2, gh=Math.ceil(WH/cell)+2, g=new Float32Array(gw*gh);
+  const rng=mulberry32(seed>>>0);
+  for(let i=0;i<g.length;i++) g[i]=rng()*2-1;
+  return (x,y)=>{ const fx=x/cell, fy=y/cell, ix=Math.floor(fx), iy=Math.floor(fy), tx=fx-ix, ty=fy-iy;
+    const i00=g[iy*gw+ix], i10=g[iy*gw+ix+1], i01=g[(iy+1)*gw+ix], i11=g[(iy+1)*gw+ix+1];
+    const a=i00+(i10-i00)*tx, b=i01+(i11-i01)*tx; return a+(b-a)*ty; };
+}
 function renderTerrain(){
+  const bi=curBiome||BIOMES.desert;
   terrCanvas=document.createElement('canvas'); terrCanvas.width=WW; terrCanvas.height=WH;
   const c=terrCanvas.getContext('2d');
-  c.fillStyle='#a8915c'; c.fillRect(0,0,WW,WH);
-  // mottled desert patches
-  for(let i=0;i<Math.round(900*MW*MH/(64*64));i++){ c.fillStyle=Math.random()<.5?'rgba(140,118,72,.25)':'rgba(190,168,110,.22)'; const r=rand(20,90); c.beginPath(); c.arc(rand(0,WW),rand(0,WH),r,0,TAU); c.fill(); }
+  c.fillStyle=bi.base; c.fillRect(0,0,WW,WH);
+  // 2-octave value noise ground: coarse dune banding (~200px) + fine grain (~40px).
+  // Rendered into a small offscreen ImageData (1 texel per 8px) then scaled up with
+  // smoothing — hundreds of thousands of fillRects would blow the 150ms budget, this
+  // is one putImageData + one drawImage. Per-render seed so each match differs.
+  const nseed=(Math.random()*1e9)>>>0;
+  const STEP=8, nw=Math.ceil(WW/STEP), nh=Math.ceil(WH/STEP);
+  const nCoarse=makeValueNoise(200/STEP,nseed), nFine=makeValueNoise(40/STEP,nseed^0x9e3779b9);
+  const parseRGB=s=>{ const m=s.match(/(\d+),(\d+),(\d+)/); return m?[+m[1],+m[2],+m[3]]:[0,0,0]; };
+  const cA=parseRGB(bi.mottleA), cB=parseRGB(bi.mottleB), cD=parseRGB(bi.dune);
+  const nc=document.createElement('canvas'); nc.width=nw; nc.height=nh; const nctx=nc.getContext('2d');
+  const id=nctx.createImageData(nw,nh), px=id.data;
+  for(let gy=0;gy<nh;gy++){ for(let gx=0;gx<nw;gx++){ const i=(gy*nw+gx)*4;
+    const coarse=nCoarse(gx,gy), v=coarse*0.65 + nFine(gx,gy)*0.35;
+    let col, a;
+    if(v>0.06){ col=cB; a=clamp(v*0.28,0,0.26); }
+    else if(v<-0.06){ col=cA; a=clamp(-v*0.30,0,0.28); }
+    else { a=0; col=cA; }
+    if(coarse>0.45){ col=cD; a=Math.max(a,clamp((coarse-0.45)*0.5,0,0.18)); }  // dune accent
+    px[i]=col[0]; px[i+1]=col[1]; px[i+2]=col[2]; px[i+3]=Math.round(a*255);
+  }}
+  nctx.putImageData(id,0,0);
+  c.imageSmoothingEnabled=true; c.drawImage(nc,0,0,nw,nh,0,0,WW,WH);
   // subtle grid
   c.strokeStyle='rgba(0,0,0,.045)'; c.lineWidth=1; c.beginPath();
   for(let x=0;x<=MW;x++){c.moveTo(x*TILE,0);c.lineTo(x*TILE,WH);} for(let y=0;y<=MH;y++){c.moveTo(0,y*TILE);c.lineTo(WW,y*TILE);} c.stroke();
-  for(const d of decor){
-    if(d.kind==='tree'){ c.fillStyle='rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(d.x+3,d.y+4,d.r,d.r*.7,0,0,TAU); c.fill();
-      c.fillStyle='#4d6b2e'; c.beginPath(); c.arc(d.x,d.y,d.r,0,TAU); c.fill();
-      c.fillStyle='#5f823a'; c.beginPath(); c.arc(d.x-d.r*.25,d.y-d.r*.25,d.r*.6,0,TAU); c.fill(); }
-    else { c.fillStyle='rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(d.x+3,d.y+3,d.r,d.r*.7,0,0,TAU); c.fill();
-      c.fillStyle='#8d8678'; c.beginPath(); c.moveTo(d.x-d.r,d.y+d.r*.6); c.lineTo(d.x-d.r*.3,d.y-d.r); c.lineTo(d.x+d.r*.7,d.y-d.r*.5); c.lineTo(d.x+d.r,d.y+d.r*.55); c.closePath(); c.fill();
-      c.fillStyle='#a39c8c'; c.beginPath(); c.moveTo(d.x-d.r*.3,d.y-d.r); c.lineTo(d.x+d.r*.7,d.y-d.r*.5); c.lineTo(d.x+d.r*.1,d.y+d.r*.2); c.closePath(); c.fill(); }
+  // WS-2.1 roads: stamp carved corridors as packed-dirt strips with two faint wheel ruts.
+  c.lineCap='round';
+  for(const rd of roads){
+    c.strokeStyle=bi.road; c.globalAlpha=0.25; c.lineWidth=TILE*1.7;
+    c.beginPath(); c.moveTo(rd.x0,rd.y0); c.lineTo(rd.x1,rd.y1); c.stroke();
+    // two wheel ruts offset perpendicular to the road direction
+    const dx=rd.x1-rd.x0, dy=rd.y1-rd.y0, L=Math.hypot(dx,dy)||1, px=-dy/L, py=dx/L, off=TILE*0.42;
+    c.strokeStyle=bi.roadRut+'0.35)'; c.globalAlpha=0.35; c.lineWidth=2;
+    for(const s of [-1,1]){ c.beginPath(); c.moveTo(rd.x0+px*off*s,rd.y0+py*off*s); c.lineTo(rd.x1+px*off*s,rd.y1+py*off*s); c.stroke(); }
+    c.globalAlpha=1;
   }
-  // minimap terrain
+  c.lineCap='butt';
+  // WS-2.1 cliff/cluster rims: 2px dark rim + 1px north highlight on blocked-terrain clusters.
+  for(let ty=0;ty<MH;ty++)for(let tx=0;tx<MW;tx++){ if(terr[tIdx(tx,ty)]!==1) continue;
+    const X=tx*TILE, Y=ty*TILE;
+    const openN=ty===0||terr[tIdx(tx,ty-1)]!==1, openS=ty>=MH-1||terr[tIdx(tx,ty+1)]!==1;
+    const openW=tx===0||terr[tIdx(tx-1,ty)]!==1, openE=tx>=MW-1||terr[tIdx(tx+1,ty)]!==1;
+    c.strokeStyle='rgba(0,0,0,.32)'; c.lineWidth=2; c.beginPath();
+    if(openS){ c.moveTo(X,Y+TILE-1); c.lineTo(X+TILE,Y+TILE-1); }
+    if(openW){ c.moveTo(X+1,Y); c.lineTo(X+1,Y+TILE); }
+    if(openE){ c.moveTo(X+TILE-1,Y); c.lineTo(X+TILE-1,Y+TILE); }
+    c.stroke();
+    if(openN){ c.strokeStyle='rgba(255,245,220,.22)'; c.lineWidth=1; c.beginPath(); c.moveTo(X,Y+0.5); c.lineTo(X+TILE,Y+0.5); c.stroke(); }
+  }
+  for(const d of decor) drawDecor(c,d,bi);
+  // WS-2.2 pre-render two shimmer frames for water (swapped every 0.8s at draw time)
+  buildWaterFrames(bi);
+  // minimap terrain (includes water/roads; water drawn blue below for clarity)
   miniTerr=document.createElement('canvas'); miniTerr.width=216; miniTerr.height=216;
-  miniTerr.getContext('2d').drawImage(terrCanvas,0,0,216,216);
+  const mc=miniTerr.getContext('2d'); mc.drawImage(terrCanvas,0,0,216,216);
+  if(waterFrames[0]) mc.drawImage(waterFrames[0],0,0,216,216);
+}
+function drawDecor(c,d,bi){
+  const shade=(hex,amt)=>{ const n=parseInt(hex.slice(1),16); let r=(n>>16)+amt,g=((n>>8)&255)+amt,b=(n&255)+amt; r=clamp(r,0,255);g=clamp(g,0,255);b=clamp(b,0,255); return 'rgb('+r+','+g+','+b+')'; };
+  const hj=Math.round((d.hue||0)*40);
+  if(d.kind==='tree'){ c.fillStyle='rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(d.x+3,d.y+4,d.r,d.r*.7,0,0,TAU); c.fill();
+    c.fillStyle=shade(bi.treeA,hj); c.beginPath(); c.arc(d.x,d.y,d.r,0,TAU); c.fill();
+    c.fillStyle=shade(bi.treeB,hj); c.beginPath(); c.arc(d.x-d.r*.25,d.y-d.r*.25,d.r*.6,0,TAU); c.fill(); }
+  else if(d.kind==='shrub'){ c.fillStyle='rgba(0,0,0,.18)'; c.beginPath(); c.ellipse(d.x+2,d.y+3,d.r*.8,d.r*.5,0,0,TAU); c.fill();
+    c.fillStyle=shade(bi.treeA,hj-6); for(let k=0;k<5;k++){ const a=k/5*TAU; c.beginPath(); c.arc(d.x+Math.cos(a)*d.r*.5,d.y+Math.sin(a)*d.r*.5,d.r*.42,0,TAU); c.fill(); } }
+  else if(d.kind==='cactus'){ c.fillStyle='rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(d.x+3,d.y+4,d.r*.7,d.r*.5,0,0,TAU); c.fill();
+    c.fillStyle=shade(bi.treeA,hj); c.fillRect(d.x-d.r*.22,d.y-d.r,d.r*.44,d.r*2);            // trunk
+    c.fillRect(d.x-d.r*.7,d.y-d.r*.2,d.r*.5,d.r*.28); c.fillRect(d.x-d.r*.72,d.y-d.r*.7,d.r*.24,d.r*.6);  // left arm
+    c.fillRect(d.x+d.r*.24,d.y-d.r*.5,d.r*.5,d.r*.26); c.fillRect(d.x+d.r*.55,d.y-d.r*1.0,d.r*.24,d.r*.6); // right arm
+    c.fillStyle=shade(bi.treeB,hj); c.fillRect(d.x-d.r*.14,d.y-d.r,d.r*.14,d.r*2); }
+  else { c.fillStyle='rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(d.x+3,d.y+3,d.r,d.r*.7,0,0,TAU); c.fill();
+    c.fillStyle=shade(bi.rockA,hj); c.beginPath(); c.moveTo(d.x-d.r,d.y+d.r*.6); c.lineTo(d.x-d.r*.3,d.y-d.r); c.lineTo(d.x+d.r*.7,d.y-d.r*.5); c.lineTo(d.x+d.r,d.y+d.r*.55); c.closePath(); c.fill();
+    c.fillStyle=shade(bi.rockB,hj); c.beginPath(); c.moveTo(d.x-d.r*.3,d.y-d.r); c.lineTo(d.x+d.r*.7,d.y-d.r*.5); c.lineTo(d.x+d.r*.1,d.y+d.r*.2); c.closePath(); c.fill(); }
+}
+// WS-2.2 build two full-size water overlay canvases; only water tiles are painted, rest transparent.
+function buildWaterFrames(bi){
+  waterFrames=[null,null];
+  if(!waterTiles.length) return;
+  // set of water tiles for edge tests
+  const isW=(tx,ty)=> inMap(tx,ty)&&terr[tIdx(tx,ty)]===3;
+  for(let f=0;f<2;f++){
+    const cv=document.createElement('canvas'); cv.width=WW; cv.height=WH; const c=cv.getContext('2d');
+    for(const w of waterTiles){ const X=w.tx*TILE, Y=w.ty*TILE;
+      // layered blue: deep base, mid fill, then shimmer highlights offset per-frame
+      c.fillStyle='#1f4a6b'; c.fillRect(X,Y,TILE,TILE);
+      c.fillStyle='#2f6d9c'; c.fillRect(X+1,Y+1,TILE-2,TILE-2);
+      c.fillStyle='rgba(120,180,220,'+(f===0?0.20:0.30)+')';
+      const sx=X+(f===0?4:TILE*0.45), sy=Y+(f===0?TILE*0.3:TILE*0.55);
+      c.beginPath(); c.ellipse(sx,sy,TILE*0.28,TILE*0.12,0.5,0,TAU); c.fill();
+      c.fillStyle='rgba(200,225,240,'+(f===0?0.16:0.10)+')';
+      c.fillRect(X+(f===0?TILE*0.5:TILE*0.15),Y+(f===0?TILE*0.6:TILE*0.25),TILE*0.28,2);
+    }
+    // dark shoreline rim on tiles adjacent to land
+    c.strokeStyle='rgba(10,30,45,.5)'; c.lineWidth=2;
+    for(const w of waterTiles){ const X=w.tx*TILE, Y=w.ty*TILE; c.beginPath();
+      if(!isW(w.tx,w.ty-1)){ c.moveTo(X,Y+1); c.lineTo(X+TILE,Y+1); }
+      if(!isW(w.tx,w.ty+1)){ c.moveTo(X,Y+TILE-1); c.lineTo(X+TILE,Y+TILE-1); }
+      if(!isW(w.tx-1,w.ty)){ c.moveTo(X+1,Y); c.lineTo(X+1,Y+TILE); }
+      if(!isW(w.tx+1,w.ty)){ c.moveTo(X+TILE-1,Y); c.lineTo(X+TILE-1,Y+TILE); }
+      c.stroke(); }
+    waterFrames[f]=cv;
+  }
 }
 
 /* ================= FOG OF WAR ================= */
@@ -1987,6 +2179,8 @@ function render(){
   const shx=G.shake>0?rand(-G.shake,G.shake):0, shy=G.shake>0?rand(-G.shake,G.shake):0;
   ctx.save(); ctx.translate(-Math.round(G.cam.x+shx),-Math.round(G.cam.y+shy));
   if(terrCanvas) ctx.drawImage(terrCanvas,0,0);
+  // WS-2.2 water shimmer: swap the two pre-rendered pond overlays every ~0.8s
+  if(waterFrames[0]){ const wf=waterFrames[(Math.floor(G.time/0.8)%2)]||waterFrames[0]; ctx.drawImage(wf,0,0); }
   drawSupplies(ctx);
   // visible filtering helpers
   const vis=e=>e.owner===0||(e.kind==='building'?tileExplored(e.x,e.y):tileVisible(e.x,e.y));
@@ -2248,6 +2442,8 @@ function startGame(facKey,diffKey,mapKey,posKey){
   G.aFac=FACTIONS[pick(Object.keys(FACTIONS).filter(k=>k!==facKey))];
   G.diff=DIFFS[diffKey];
   G.aiMoney=G.diff.aiStart;
+  // WS-2.1 pick biome per match (temp override: window.FORCE_BIOME='steppe'|'badlands'|'desert')
+  curBiome=BIOMES[window.FORCE_BIOME]||pick(Object.values(BIOMES));
   genMap(); renderTerrain();
   placeBase(0,P_BASE,G.pFac);
   placeBase(1,A_BASE,G.aFac);
