@@ -220,6 +220,9 @@ const rand=(a,b)=>a+Math.random()*(b-a);
 const randi=(a,b)=>Math.floor(rand(a,b+1));
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 function angLerp(a,b,t){let d=((b-a+Math.PI)%TAU+TAU)%TAU-Math.PI;return a+d*Math.min(1,t);}
+// WS-0.3: seeded PRNG (mulberry32). Test mode swaps Math.random for a seeded stream
+// so map-gen failures are reproducible; normal play never touches this.
+function mulberry32(seed){ let a=seed>>>0; return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
 
 /* ================= AUDIO ================= */
 let AC=null, muted=false, sfxBudget=8;
@@ -1622,7 +1625,7 @@ function loadDirSprites(key,base,n,size){
     im.src=base+'_'+i+'.png'; set.img[i]=im; }
 }
 // register available unit sprites (8-direction frames in assets/<key>_0..7.png); missing -> vector fallback
-[['ranger',30],['missile',30],['sniper',30],['burton',32],['redguard',30],['hunter',30],['lotus',30],['rebel',30],['rpg',30],['terrorist',30],['jarmen',32],['worker',30],   // top-down infantry (regenerated, correct facing)
+const UNIT_SPRITE_REG=[['ranger',30],['missile',30],['sniper',30],['burton',32],['redguard',30],['hunter',30],['lotus',30],['rebel',30],['rpg',30],['terrorist',30],['jarmen',32],['worker',30],   // top-down infantry (regenerated, correct facing)
  ['humvee',34],['crusader',38],['paladin',40],
  ['avenger',38],['tomahawk',38],['raptor',48],['aurora',50],['comanche',46],['chinook',46],
  // China
@@ -1632,8 +1635,10 @@ function loadDirSprites(key,base,n,size){
  ['cycle',32],['technical',34],['buggy',34],['quad',32],
  ['scorpion',36],['marauder',40],['bombtruck',34],['toxin',36],['scud',44],
  // build-out: China Supply Truck (sprites dropped upstream) + new dozers/transport
- ['truck',56],['bulldozer',62],['dozer',62],['battlebus',54]]
- .forEach(a=>loadDirSprites(a[0],'assets/'+a[0],8,a[1]));
+ ['truck',56],['bulldozer',62],['dozer',62],['battlebus',54]];
+const UNIT_SPRITE_KEYS=UNIT_SPRITE_REG.map(a=>a[0]);   // canonical order (survives self-deletion of fully-404'd sets)
+const UNIT_SPRITE_SIZE=Object.fromEntries(UNIT_SPRITE_REG);
+UNIT_SPRITE_REG.forEach(a=>loadDirSprites(a[0],'assets/'+a[0],8,a[1]));
 // building sprites: up to 3 health states per type (bld_<k>_0 healthy .. _2 critical); emoji fallback
 const BLD_SPRITES={};
 ['hq','power','supply','barracks','training','factory','air','def','firebase','strategy','particle','bunker','propaganda','nuke','market','tunnel','palace','scudstorm']
@@ -1641,6 +1646,40 @@ const BLD_SPRITES={};
 function bldSprite(b){ const st=BLD_SPRITES[b.def.k]; if(!st) return null; const fr=b.hp/b.maxHp, idx=fr>0.66?0:fr>0.33?1:2;
   for(let i=idx;i<3;i++) if(st[i]&&st[i].ready&&st[i].img.naturalHeight) return st[i].img;
   for(let i=idx;i>=0;i--) if(st[i]&&st[i].ready&&st[i].img.naturalHeight) return st[i].img; return null; }
+/* ===== WS-0.1 sprite verification (console.table on load) ================
+   Runs harmlessly on every load. Reports loaded frame counts per unit sprite
+   set and per-state ready flags per building. Flags PARTIAL sets (0<ready<full)
+   — those are 404'd frames that silently corrupt facing. Expected on disk:
+   42 unit sets at 8/8, 17 buildings at 3/3, `tunnel` 0/3 (known-missing). */
+function spriteAudit(){
+  const uRows={}, partials=[];
+  // A fully-404'd unit set deletes itself from SPRITES (loadDirSprites onerror),
+  // so iterate the canonical registered key list to catch full misses too.
+  for(const key of UNIT_SPRITE_KEYS){
+    const set=SPRITES[key];
+    if(!set){ uRows[key]={ready:0, of:8, size:UNIT_SPRITE_SIZE[key], status:'MISSING (fallback)'}; continue; }
+    uRows[key]={ready:set.ready, of:set.n, size:set.size, status:set.ready>=set.n?'ok':set.ready>0?'PARTIAL':'empty'};
+    if(set.ready>0&&set.ready<set.n) partials.push(key+' '+set.ready+'/'+set.n);
+  }
+  const bRows={}, bTotal={ready:0,of:0};
+  for(const k of Object.keys(BLD_SPRITES)){
+    const st=BLD_SPRITES[k]; let ready=0;
+    const flags=st.map(o=>{ const ok=!!(o&&o.ready&&o.img&&o.img.naturalHeight); if(ok)ready++; return ok?1:0; });
+    bRows[k]={s0:flags[0],s1:flags[1],s2:flags[2],ready:ready,of:st.length,status:ready>=st.length?'ok':ready>0?'PARTIAL':'MISSING'};
+    bTotal.ready+=ready; bTotal.of+=st.length;
+    if(ready>0&&ready<st.length) partials.push('bld_'+k+' '+ready+'/'+st.length);
+  }
+  const fullUnits=Object.values(uRows).filter(r=>r.status==='ok').length;
+  console.log('%c[WS-0.1] Sprite verification','font-weight:bold');
+  console.log('Unit sprite sets: '+fullUnits+'/'+Object.keys(uRows).length+' fully loaded');
+  console.table(uRows);
+  console.log('Building sprite sets (per-state ready): '+bTotal.ready+'/'+bTotal.of+' frames');
+  console.table(bRows);
+  if(partials.length) console.warn('[WS-0.1] PARTIAL loads (probable 404 on some frames — real bug):', partials);
+  else console.log('[WS-0.1] No partial loads detected.');
+}
+// run once after images have had time to load (async Image.onload); harmless to normal play
+window.addEventListener('load',()=>setTimeout(spriteAudit,1500));
 // Faction color wash for shared building art (interim until per-faction building sprites exist). Cached per sprite+color.
 const _tintCache={};
 function tintedSprite(im,color){
@@ -2295,6 +2334,230 @@ function initDebug(){
       'Destroy every enemy structure to win.';
     const foot=document.querySelector('#startScreen .foot');
     if(foot) foot.textContent='Tap select · drag to pan · hold+drag to box-select · 🏗️ build menu · tap minimap to scout';
+  }
+})();
+
+/* ================= WS-0.2 / WS-0.3  VERIFICATION MODES =================
+   Guarded behind location.search so normal load (no params) is untouched.
+   ?gallery=N  -> sprite gallery, page N (default 1)
+   ?test=map   -> automated map reachability harness                        */
+(function verificationModes(){
+  const qs=location.search||'';
+  if(!/[?&](gallery|test=map)/.test(qs)) return;
+
+  // ---- shared: stop the game loop from touching this canvas (it early-returns
+  // in menu state anyway, but be explicit) and size canvas to the window.
+  function fitCanvas(){ canvas.width=innerWidth; canvas.height=innerHeight; }
+  fitCanvas();
+  // hide the start-screen overlay so the gallery/map render isn't covered by the menu
+  const _ss=document.getElementById('startScreen'); if(_ss) _ss.classList.add('hidden');
+
+  if(/[?&]gallery/.test(qs)){ runGallery(parseGalleryPage(qs)); return; }
+  if(/test=map/.test(qs)){ runMapTest(); return; }
+
+  function parseGalleryPage(s){ const m=s.match(/gallery=(\d+)/); const n=m?parseInt(m[1],10):1; return Math.max(1,n||1); }
+
+  /* ----------------------- WS-0.2 SPRITE GALLERY ----------------------- */
+  function runGallery(page){
+    // Build a flat list of "cards". Each unit key = one card (8 frames + x3 row).
+    // Each building key = one card (3 health states at x3 tile). Layout paginates.
+    const bldKeys=Object.keys(BLD_SPRITES);
+    const unitCards=UNIT_SPRITE_KEYS.map(k=>({type:'unit',key:k}));
+    const bldCards=bldKeys.map(k=>({type:'bld',key:k}));
+    const cards=unitCards.concat(bldCards);
+    const CARD_H=140, PAD=16, TOP=54;
+    let curPage=page, totalPages=1;
+
+    function draw(){
+      fitCanvas();
+      const W=canvas.width, H=canvas.height, c=ctx;
+      c.fillStyle='#a8915c'; c.fillRect(0,0,W,H);   // terrain sand
+      const perPage=Math.max(1,Math.floor((H-TOP-PAD)/CARD_H));
+      totalPages=Math.max(1,Math.ceil(cards.length/perPage));
+      curPage=clamp(curPage,1,totalPages);
+      // header
+      c.fillStyle='#1c1710'; c.font='bold 20px sans-serif'; c.textAlign='left'; c.textBaseline='alphabetic';
+      c.fillText('SPRITE GALLERY  —  page '+curPage+'/'+totalPages+'   ('+UNIT_SPRITE_KEYS.length+' units + '+bldKeys.length+' buildings, ←/→ to page)',PAD,32);
+      const start=(curPage-1)*perPage, end=Math.min(cards.length,start+perPage);
+      for(let i=start;i<end;i++){
+        const y=TOP+(i-start)*CARD_H;
+        drawCard(c,cards[i],PAD,y,W-PAD*2,CARD_H);
+      }
+    }
+
+    function label(c,txt,x,y,color){ c.fillStyle=color||'#221c12'; c.font='12px sans-serif'; c.textAlign='left'; c.textBaseline='alphabetic'; c.fillText(txt,x,y); }
+
+    function drawCard(c,card,x,y,w,h){
+      c.strokeStyle='rgba(0,0,0,.18)'; c.lineWidth=1; c.strokeRect(x,y+.5,w,h-1);
+      if(card.type==='unit') drawUnitCard(c,card.key,x,y,w,h);
+      else drawBldCard(c,card.key,x,y,w,h);
+    }
+
+    function drawUnitCard(c,key,x,y,w,h){
+      const set=SPRITES[key], size=(set&&set.size)||UNIT_SPRITE_SIZE[key]||30;
+      const loaded=!!(set&&set.ready>=set.n);
+      label(c,key+(loaded?'  ('+set.ready+'/'+set.n+')':'  FALLBACK'),x+6,y+18, loaded?'#221c12':'#7a1f14');
+      if(loaded){
+        // row 1: all 8 frames at native size, captioned 0..7
+        const cellW=Math.min(72,(w-24)/8), baseY=y+34, rowH=64;
+        for(let d=0;d<8;d++){
+          const cx=x+16+d*cellW+cellW/2, cy=baseY+rowH/2;
+          const im=set.img[d];
+          if(im&&im.naturalHeight){ const dh=Math.min(size,rowH-14), dw=im.naturalWidth/im.naturalHeight*dh; c.drawImage(im,cx-dw/2,cy-dh/2,dw,dh); }
+          label(c,''+d,cx-3,baseY+rowH-2,'#3a3020');
+        }
+        // row 2: same 8 frames at x3 scale (facing sanity check, big)
+        const y2=y+34+rowH, cellW2=Math.min(120,(w-24)/8);
+        for(let d=0;d<8;d++){
+          const cx=x+16+d*cellW2+cellW2/2, cy=y2+18;
+          const im=set.img[d];
+          if(im&&im.naturalHeight){ const dh=Math.min(size*3,34), dw=im.naturalWidth/im.naturalHeight*dh; c.drawImage(im,cx-dw/2,cy-dh/2,dw,dh); }
+        }
+        label(c,'x3',x+2,y2+24,'#5a4c30');
+      } else {
+        // exercise the engine's real vector/emoji fallback via drawUnit
+        drawUnitFallbackRow(c,key,x+16,y+40);
+      }
+    }
+
+    // Build a throwaway unit and render it in 8 facings using the real drawUnit()
+    function drawUnitFallbackRow(c,key,x,y){
+      const def=findUnitDef(key)||{k:key,cls:'inf',i:'❓'};
+      for(let d=0;d<8;d++){
+        const face=d*(TAU/8), cx=x+d*84+30, cy=y+40;
+        c.save(); c.translate(cx,cy);
+        const u={owner:0,x:0,y:0,face:face,def:def,air:def.cls==='heli',moving:false,recoil:0,flash:0,vet:0,id:d,hp:1,maxHp:1,r:14};
+        // drawUnit translates by u.x,u.y (0,0 here) then draws; we've pre-translated.
+        try{ drawUnit(c,u); }catch(e){}
+        c.restore();
+        label(c,''+d,cx-3,cy+30,'#3a3020');
+      }
+    }
+
+    function drawBldCard(c,key,x,y,w,h){
+      const st=BLD_SPRITES[key]; let ready=0; st.forEach(o=>{ if(o&&o.ready&&o.img&&o.img.naturalHeight) ready++; });
+      const loaded=ready>0;
+      label(c,'bld_'+key+(loaded?'  ('+ready+'/'+st.length+')':'  FALLBACK'),x+6,y+18, loaded?'#221c12':'#7a1f14');
+      const def=findBldDef(key);
+      const tile=TILE*3, baseY=y+30;
+      for(let s=0;s<3;s++){
+        const cx=x+30+s*(tile+40)+tile/2, cy=baseY+tile/2;
+        const o=st[s];
+        if(o&&o.ready&&o.img&&o.img.naturalHeight){
+          const im=o.img, sc=(tile)/Math.max(im.naturalWidth,im.naturalHeight), dw=im.naturalWidth*sc, dh=im.naturalHeight*sc;
+          c.drawImage(im,cx-dw/2,cy-dh/2,dw,dh);
+        } else {
+          // emoji/vector fallback
+          c.font='40px serif'; c.textAlign='center'; c.textBaseline='middle';
+          c.fillStyle='#2c3024'; c.fillText((def&&def.i)||'🏢',cx,cy);
+        }
+        label(c,['healthy','damaged','critical'][s],cx-24,baseY+tile+14,'#3a3020');
+      }
+    }
+
+    function findUnitDef(key){ for(const fk of Object.keys(FACTIONS)){ const d=FACTIONS[fk].units.find(u=>u.k===key||u.src===key); if(d) return d; } return null; }
+    function findBldDef(key){ for(const fk of Object.keys(FACTIONS)){ const d=FACTIONS[fk].buildings.find(b=>b.k===key); if(d) return d; } return null; }
+
+    addEventListener('keydown',e=>{ if(e.key==='ArrowRight'){ curPage=Math.min(totalPages,curPage+1); draw(); } else if(e.key==='ArrowLeft'){ curPage=Math.max(1,curPage-1); draw(); } });
+    addEventListener('resize',draw);
+    // sprites load async — redraw a few times as images arrive
+    draw(); let n=0; const iv=setInterval(()=>{ draw(); if(++n>12) clearInterval(iv); },400);
+  }
+
+  /* ----------------------- WS-0.3 MAP TEST HARNESS --------------------- */
+  function runMapTest(){
+    const sizes=['small','medium','large'];
+    const positions=['bl','tl','tr','br','center'];
+    const RUNS=50;
+    const seedBase=(Math.random()*1e9)>>>0;   // logged so any failure is reproducible
+    console.log('%c[WS-0.3] MAP TEST starting','font-weight:bold');
+    console.log('seedBase='+seedBase+'  (Math.random routed through mulberry32; each run seed = seedBase + runIndex)');
+    const origRandom=Math.random;
+    let total=0, passed=0, runIdx=0;
+    const failSeeds=[]; const cfgStats={};
+    let lastRender=null;
+
+    // BFS flood-fill over open tiles from a start tile. Returns Uint8Array visited.
+    function flood(sx,sy){
+      const vis=new Uint8Array(MW*MH); if(isBlocked(sx,sy)) return vis;
+      const q=[sy*MW+sx]; vis[q[0]]=1; let head=0;
+      while(head<q.length){ const idx=q[head++], tx=idx%MW, ty=(idx/MW)|0;
+        const nb=[[tx+1,ty],[tx-1,ty],[tx,ty+1],[tx,ty-1]];
+        for(const [nx,ny] of nb){ if(nx<0||ny<0||nx>=MW||ny>=MH) continue; const ni=ny*MW+nx; if(vis[ni]) continue; if(blockGrid[ni]>0) continue; vis[ni]=1; q.push(ni); } }
+      return vis;
+    }
+    function openTileCount(){ let n=0; for(let i=0;i<blockGrid.length;i++) if(blockGrid[i]===0) n++; return n; }
+    // a supply pile is edge-reachable if any 4-neighbour open tile is in the component
+    function supplyReachable(s,vis){
+      const nb=[[s.tx+1,s.ty],[s.tx-1,s.ty],[s.tx,s.ty+1],[s.tx,s.ty-1],[s.tx,s.ty]];
+      for(const [nx,ny] of nb){ if(nx<0||ny<0||nx>=MW||ny>=MH) continue; if(!blockGrid[ny*MW+nx] && vis[ny*MW+nx]) return true; }
+      return false;
+    }
+
+    function evalOne(seed){
+      // route randomness through seeded PRNG for this generation
+      const rng=mulberry32(seed); Math.random=rng;
+      try{ genMap(); }
+      finally{ Math.random=origRandom; }
+      const vis=flood(P_BASE.tx,P_BASE.ty);
+      const compSize=vis.reduce((a,v)=>a+v,0);
+      const open=openTileCount();
+      const enemyReach=!!vis[A_BASE.ty*MW+A_BASE.tx] || anyOpenNeighbourInComp(A_BASE,vis);
+      let suppliesOk=true; for(const s of G.supplies){ if(!supplyReachable(s,vis)){ suppliesOk=false; break; } }
+      const compRatioOk = open>0 ? (compSize/open)>=0.90 : false;
+      lastRender={compSize,open};
+      return { pass: enemyReach && suppliesOk && compRatioOk, enemyReach, suppliesOk, compRatioOk, compRatio: open?compSize/open:0 };
+    }
+    function anyOpenNeighbourInComp(b,vis){ const nb=[[b.tx+1,b.ty],[b.tx-1,b.ty],[b.tx,b.ty+1],[b.tx,b.ty-1]]; for(const [nx,ny] of nb){ if(nx<0||ny<0||nx>=MW||ny>=MH) continue; if(!blockGrid[ny*MW+nx]&&vis[ny*MW+nx]) return true; } return false; }
+
+    // iterate configs; yield to the event loop between configs so the page stays alive
+    let ci=0, pi=0;
+    function step(){
+      const size=sizes[ci], pos=positions[pi];
+      setMapSize(size); setupBases(pos);
+      const cfgKey=size+'/'+pos; let cPass=0, cEnemy=0, cSup=0, cComp=0;
+      for(let r=0;r<RUNS;r++){
+        const seed=seedBase+(runIdx++);
+        const res=evalOne(seed);
+        total++; if(res.pass){ passed++; cPass++; } else failSeeds.push({cfg:cfgKey,seed,enemyReach:res.enemyReach,suppliesOk:res.suppliesOk,compRatio:+res.compRatio.toFixed(3)});
+        if(res.enemyReach)cEnemy++; if(res.suppliesOk)cSup++; if(res.compRatioOk)cComp++;
+      }
+      cfgStats[cfgKey]={pass:cPass+'/'+RUNS,enemyReach:cEnemy,suppliesEdgeReach:cSup,comp90:cComp};
+      renderLastMap(cfgKey);
+      // advance
+      pi++; if(pi>=positions.length){ pi=0; ci++; }
+      if(ci<sizes.length){ setTimeout(step,0); }
+      else finish();
+    }
+    function finish(){
+      Math.random=origRandom;
+      console.log('%c[WS-0.3] MAPTEST '+passed+'/'+total+' PASS','font-weight:bold;color:'+(passed===total?'#2a0':'#a30'));
+      console.table(cfgStats);
+      if(failSeeds.length){ console.warn('[WS-0.3] '+failSeeds.length+' failing generations (reproducible via seed):'); console.table(failSeeds.slice(0,60)); if(failSeeds.length>60) console.warn('...and '+(failSeeds.length-60)+' more'); }
+      else console.log('[WS-0.3] no failures.');
+      // final on-canvas summary
+      const c=ctx; c.fillStyle='rgba(0,0,0,.72)'; c.fillRect(0,0,canvas.width,60);
+      c.fillStyle=passed===total?'#8f8':'#f99'; c.font='bold 20px sans-serif'; c.textAlign='left'; c.textBaseline='middle';
+      c.fillText('MAPTEST '+passed+'/'+total+' PASS'+(failSeeds.length?('   ('+failSeeds.length+' fails — see console)'):''),16,30);
+    }
+    // draw the last-generated map so it's visibly running
+    function renderLastMap(cfgKey){
+      const c=ctx, W=canvas.width, H=canvas.height;
+      const sc=Math.min((W-20)/WW,(H-70)/WH), ox=10, oy=64;
+      c.fillStyle='#111'; c.fillRect(0,0,W,H);
+      c.save(); c.translate(ox,oy); c.scale(sc,sc);
+      c.fillStyle='#a8915c'; c.fillRect(0,0,WW,WH);
+      for(let ty=0;ty<MH;ty++)for(let tx=0;tx<MW;tx++){ if(blockGrid[ty*MW+tx]>0){ c.fillStyle='#3a4a2a'; c.fillRect(tx*TILE,ty*TILE,TILE,TILE); } }
+      for(const s of G.supplies){ c.fillStyle='#ffd455'; c.fillRect(s.tx*TILE+6,s.ty*TILE+6,TILE-12,TILE-12); }
+      c.fillStyle='#4fa3ff'; c.fillRect(P_BASE.tx*TILE-TILE,P_BASE.ty*TILE-TILE,TILE*3,TILE*3);
+      c.fillStyle='#ff5545'; c.fillRect(A_BASE.tx*TILE-TILE,A_BASE.ty*TILE-TILE,TILE*3,TILE*3);
+      c.restore();
+      c.fillStyle='rgba(0,0,0,.7)'; c.fillRect(0,0,W,58);
+      c.fillStyle='#eee'; c.font='15px sans-serif'; c.textAlign='left'; c.textBaseline='middle';
+      c.fillText('MAP TEST running… '+cfgKey+'   ('+total+' generated, '+passed+' pass so far)   blue=you red=enemy yellow=supply green=blocked',12,20);
+      if(lastRender) c.fillText('component '+lastRender.compSize+'/'+lastRender.open+' open tiles ('+(lastRender.open?(100*lastRender.compSize/lastRender.open).toFixed(1):'0')+'%)',12,42);
+    }
+    setTimeout(step,60);
   }
 })();
 </script>
