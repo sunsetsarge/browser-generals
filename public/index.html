@@ -264,8 +264,8 @@ const DMG={
    unit: k,n,i,cls(draw class),cost,t,hp,sp(speed),ar(armor),r(radius),sight,src(producer tag),w,harv,suicide,air */
 const FACTIONS={
 USA:{key:'USA',name:'USA',color:'#4f8fe0',dark:'#23446e',
- desc:'High-tech, expensive, powerful. Precision air power and tough tanks.',
- tag:'Air superiority · Snipers · Tomahawks',
+ desc:'Quality over quantity. + Veteran Edge: kills count ×1.5 toward rank and idle units self-repair. − Fragile logistics: priciest roster, and low power cripples production hardest (×0.35).',
+ tag:'+ Veterancy & self-repair · − Priciest, power-fragile',
  buildings:[
   {k:'hq',n:'Command Center',i:'🏛️',cost:2000,t:30,hp:2500,size:3,pow:5},
   {k:'power',n:'Cold Fusion Reactor',i:'⚡',cost:600,t:8,hp:800,size:2,pow:10},
@@ -295,8 +295,8 @@ USA:{key:'USA',name:'USA',color:'#4f8fe0',dark:'#23446e',
   {k:'chinook',n:'Chinook (Harvester)',i:'📦',cls:'heli',cost:600,t:10,hp:300,sp:120,ar:'air',r:13,sight:200,src:'supply',air:true,harv:{cap:300}},
  ]},
 CHINA:{key:'CHINA',name:'China',color:'#e0524f',dark:'#6e2423',
- desc:'Massed firepower. Cheap hordes of infantry backed by heavy armor and napalm.',
- tag:'Hordes · Overlords · Napalm',
+ desc:'Mass and momentum. + Horde Bonus: combat units massed 3+ together gain +25% damage & +10% speed. − Slow, volatile: build times ×1.15 and Nuclear Reactors explode when destroyed.',
+ tag:'+ Horde bonus when massed · − Slow builds, exploding reactors',
  buildings:[
   {k:'hq',n:'Command Center',i:'🏯',cost:2000,t:30,hp:2600,size:3,pow:5},
   {k:'power',n:'Nuclear Reactor',i:'☢️',cost:600,t:8,hp:800,size:2,pow:10},
@@ -325,8 +325,8 @@ CHINA:{key:'CHINA',name:'China',color:'#e0524f',dark:'#6e2423',
   {k:'truck',n:'Supply Truck',i:'📦',cls:'truck',cost:400,t:8,hp:260,sp:95,ar:'light',r:13,sight:180,src:'supply',harv:{cap:300}},
  ]},
 GLA:{key:'GLA',name:'GLA',color:'#b5a642',dark:'#5a531f',
- desc:'Cheap, sneaky, swarming. No power needed. Suicide bombers, toxins and SCUDs.',
- tag:'No power · Swarms · SCUD storms',
+ desc:'Scavenge and swarm. + Salvage: every enemy your units kill pays 15% of its cost as scrap (needs no power, build times ×0.90). − Fragile & grounded: unit HP ×0.92, no aircraft, no self-repair.',
+ tag:'+ Salvage economy, no power · − Weak HP, no aircraft',
  buildings:[
   {k:'hq',n:'Command Center',i:'⛺',cost:1800,t:28,hp:2200,size:3,pow:0},
   {k:'supply',n:'Supply Stash',i:'📦',cost:1000,t:11,hp:1100,size:2,pow:0,trains:'supply'},
@@ -401,16 +401,54 @@ const PERKS=[
   {k:'optics', n:'Advanced Optics', i:'🔭',max:2,per:0.18,base:900, step:700},  // +18% sight, +10% range / level
   {k:'drill',  n:'Combat Training', i:'🥋',max:2,per:0.10,base:1200,step:800},  // +10% speed; faster veterancy
 ];
+/* ================= FACTION ASYMMETRY (Phase 1 — SPEC §1) =================
+   Single balance-knob object. All faction-signature numbers live here so a
+   retune is a one-place edit. Applied passively (auras/economy hooks) so the
+   AI (owner 1) gets them for free — defs are shared. */
+const FACTION_MODS={
+  USA:  {vetKillMul:1.5, idleHealPct:0.015, idleHealDelay:4, lowPowerRate:0.35},
+  CHINA:{hordeRadius:160, hordeCount:3, hordeDmg:1.25, hordeSpd:1.10,
+         buildTimeMul:1.15, reactorBoom:{dmg:220, aoe:110}},
+  GLA:  {salvagePct:0.15, salvageCap:400, buildTimeMul:0.90, hpMul:0.92},
+};
+/* Apply the load-time stat layers ONCE by mutating the shared defs:
+   - CHINA build times ×1.15 (units + buildings), GLA ×0.90
+   - GLA unit HP ×0.92 (rounded)
+   Run after all FACTIONS build-out patches so every def (walls, transports,
+   battlebus, dozers) is covered. */
+(function applyFactionMods(){
+  // tag every def with its owning faction key so lookups (tooltip, reactor boom, salvage) are O(1)
+  for(const fk of Object.keys(FACTIONS)) for(const d of FACTIONS[fk].units.concat(FACTIONS[fk].buildings)) d._fac=fk;
+  const chinaMul=FACTION_MODS.CHINA.buildTimeMul, glaMul=FACTION_MODS.GLA.buildTimeMul, glaHp=FACTION_MODS.GLA.hpMul;
+  for(const d of FACTIONS.CHINA.units.concat(FACTIONS.CHINA.buildings)){ if(d.t) d.t=Math.round(d.t*chinaMul*100)/100; }
+  for(const d of FACTIONS.GLA.units.concat(FACTIONS.GLA.buildings)){ if(d.t) d.t=Math.round(d.t*glaMul*100)/100; }
+  for(const d of FACTIONS.GLA.units){ if(d.hp) d.hp=Math.round(d.hp*glaHp); }
+})();
+
 const perkLvl=(o,k)=>(G.perks[o]&&G.perks[o][k])||0;
 function perkPrice(p,o){ return p.base+perkLvl(o,p.k)*p.step; }
 function perkMul(o,k,per){ return 1+per*perkLvl(o,k); }
 // effective per-unit stats (veterancy × faction perks); units only — buildings use base stats
 function dbgMul(u,key){ return u.owner===0?DBG[key]:1; }   // debug multipliers cheat the player only
-function unitDmg(u){ const w=u.def.w; return w?w.dmg*VET_DMG[u.vet||0]*perkMul(u.owner,'weapons',0.12)*dbgMul(u,'dmg'):0; }
+function unitDmg(u){ const w=u.def.w; return w?w.dmg*VET_DMG[u.vet||0]*perkMul(u.owner,'weapons',0.12)*dbgMul(u,'dmg')*(u.horde?FACTION_MODS.CHINA.hordeDmg:1):0; }
 function unitRng(u){ const w=u.def.w; return w?w.rng*VET_RNG[u.vet||0]*perkMul(u.owner,'optics',0.10)*dbgMul(u,'rng'):0; }
 function unitSight(u){ return u.def.sight*VET_SIGHT[u.vet||0]*perkMul(u.owner,'optics',0.18); }
-function unitSpeed(u){ return u.def.sp*perkMul(u.owner,'drill',0.10); }
+function unitSpeed(u){ return u.def.sp*perkMul(u.owner,'drill',0.10)*(u.horde?FACTION_MODS.CHINA.hordeSpd:1); }
 function unitCd(u){ return u.def.w.cd/(u.owner===0?DBG.fireRate:1); }
+// China Horde Bonus (SPEC §1): a China ground combat unit is eligible if it has a
+// weapon and isn't a harvester/builder/aircraft. When 3+ OTHER eligible friendly
+// China units are within hordeRadius, u.horde=true grants +25% dmg / +10% speed.
+function hordeEligible(u){ return facOf(u.owner).key==='CHINA'&&u.def.w&&!u.def.harv&&!u.def.builder&&!u.air; }
+function recomputeHorde(u){
+  if(!hordeEligible(u)){ u.horde=false; return; }
+  const R=FACTION_MODS.CHINA.hordeRadius, R2=R*R; let cnt=0;
+  for(const o of G.units){
+    if(o===u||o.dead||o.owner!==u.owner) continue;
+    if(!hordeEligible(o)) continue;
+    const dx=o.x-u.x, dy=o.y-u.y; if(dx*dx+dy*dy<=R2){ if(++cnt>=FACTION_MODS.CHINA.hordeCount) break; }
+  }
+  u.horde=cnt>=FACTION_MODS.CHINA.hordeCount;
+}
 function unitHpMax(u){ return Math.round(u.def.hp*VET_HP[u.vet||0]*perkMul(u.owner,'armor',0.15)*dbgMul(u,'hp')); }
 function checkPromote(u){
   if(u.def.harv) return;
@@ -667,6 +705,8 @@ function dealDamage(e,raw,wtype,srcEnt){
   if(DBG.god&&e.owner===0) return;   // debug: player units invulnerable
   const mult=e.air?DMG[wtype].air:DMG[wtype][e.armor];
   e.hp-=raw*mult*rand(.85,1.15); e.flash=.12;
+  if(e.kind==='unit') e.lastCombatT=G.time;                 // taking damage resets USA idle-heal timer
+  if(srcEnt&&srcEnt.kind==='unit'&&!srcEnt.dead) srcEnt.lastCombatT=G.time; // dealing damage too
   if(e.hp<=0){ killEnt(e,srcEnt); return; }
   // retaliation / AI defense ping
   if(srcEnt&&!srcEnt.dead){
@@ -683,8 +723,21 @@ function killEnt(e,srcEnt){
     if(e.owner===1)G.stats.razed++; }
   else { explosion(e.x,e.y,e.air?22:e.r*1.6);
     if(e.owner===0)G.stats.lost++; else if(srcEnt&&srcEnt.owner===0)G.stats.kills++; }
-  // veterancy: the killer earns a kill toward its next chevron (debug xpRate boosts the player)
-  if(srcEnt&&srcEnt.kind==='unit'&&!srcEnt.dead&&!srcEnt.def.harv){ srcEnt.kills+=(srcEnt.owner===0?DBG.xpRate:1); checkPromote(srcEnt); }
+  // ---- Faction signature mechanics (SPEC §1) ----
+  // GLA Salvage: a GLA-owned unit that destroys an enemy banks 15% of its cost (cap $400).
+  if(srcEnt&&srcEnt.kind==='unit'&&!srcEnt.dead&&facOf(srcEnt.owner).key==='GLA'&&e.owner!==srcEnt.owner&&e.def&&e.def.cost){
+    const scrap=Math.min(FACTION_MODS.GLA.salvageCap,Math.round(e.def.cost*FACTION_MODS.GLA.salvagePct));
+    if(scrap>0){ addMoney(srcEnt.owner,scrap);
+      if(srcEnt.owner===0){ sfx('cash',srcEnt.x,srcEnt.y); G.parts.push({type:'text',x:e.x,y:e.y-14,txt:'+$'+scrap+' scrap',life:1.1,maxLife:1.1}); } }
+  }
+  // China Reactor explosion: a destroyed China power building detonates, hitting EVERYONE (owner -1 = nobody skipped).
+  if(e.kind==='building'&&e.def&&e.def.k==='power'&&e.def._fac==='CHINA'){
+    const rb=FACTION_MODS.CHINA.reactorBoom;
+    explosion(e.x,e.y,rb.aoe); splashDamage(e.x,e.y,{type:'blast',dmg:rb.dmg,aoe:rb.aoe},-1,null);
+  }
+  // veterancy: the killer earns a kill toward its next chevron (USA ×1.5 Veteran Edge; debug xpRate boosts the player)
+  if(srcEnt&&srcEnt.kind==='unit'&&!srcEnt.dead&&!srcEnt.def.harv){
+    srcEnt.kills+=(facOf(srcEnt.owner).key==='USA'?FACTION_MODS.USA.vetKillMul:1)*(srcEnt.owner===0?DBG.xpRate:1); checkPromote(srcEnt); }
 }
 function splashDamage(x,y,w,owner,srcEnt){
   const r=w.aoe;
@@ -849,6 +902,13 @@ function updateHarvester(u,dt){
 /* ---- unit update ---- */
 function updateUnit(u,dt){
   if(u.dead) return;
+  // China Horde Bonus recompute on the scan cadence (~0.35s); only for China combat units
+  if(facOf(u.owner).key==='CHINA'){ u.hordeT=(u.hordeT||0)-dt; if(u.hordeT<=0){ u.hordeT=.35; recomputeHorde(u); } }
+  // USA Veteran Edge — idle self-repair: 1.5% maxHp/s after idleHealDelay s out of combat.
+  u._healing=false;
+  if(facOf(u.owner).key==='USA'&&!u.def.harv&&u.hp<u.maxHp&&(G.time-(u.lastCombatT||-99))>FACTION_MODS.USA.idleHealDelay){
+    u.hp=Math.min(u.maxHp,u.hp+u.maxHp*FACTION_MODS.USA.idleHealPct*dt); u._healing=true;
+  }
   // movement tracking (drives walk-bob + dust) and recoil decay
   u.moving=Math.hypot(u.x-(u._px||u.x),u.y-(u._py||u.y))>0.5; u._px=u.x; u._py=u.y;
   u.cd=Math.max(0,u.cd-dt); u.flash=Math.max(0,u.flash-dt); u.recoil=Math.max(0,(u.recoil||0)-dt*20);
@@ -932,7 +992,7 @@ function queueUnit(owner,def){
 function updateBuilding(b,dt){
   if(b.dead) return;
   b.flash=Math.max(0,b.flash-dt);
-  const rate=lowPower(b.owner)?0.5:1;
+  const rate=lowPower(b.owner)?(facOf(b.owner).key==='USA'?FACTION_MODS.USA.lowPowerRate:0.5):1;
   if(!b.done){
     // construction is driven by a dozer working the site (see updateBuild); just watch for completion
     if(b.prog>=b.def.t){ b.done=true; b.hp=Math.min(b.maxHp,Math.max(b.hp,b.maxHp));
@@ -1100,7 +1160,7 @@ function updateBuild(u,dt){
   if(d>BUILD_REACH){ if(!u.dest) setMove(u,b.x,b.y+b.r+10); stepPath(u,dt); return; }
   u.dest=null; u.path=null;
   u.face=angLerp(u.face,Math.atan2(b.y-u.y,b.x-u.x),dt*8);
-  const rate=lowPower(u.owner)?0.5:1;
+  const rate=lowPower(u.owner)?(facOf(u.owner).key==='USA'?FACTION_MODS.USA.lowPowerRate:0.5):1;
   b.prog+=dt*rate;
   b.hp=Math.min(b.maxHp, b.maxHp*0.1 + b.maxHp*0.9*clamp(b.prog/b.def.t,0,1));
   if(Math.random()<dt*14) G.parts.push({type:'spark',x:b.x+rand(-b.r,b.r),y:b.y+rand(-b.r,b.r),vx:rand(-22,22),vy:rand(-45,-12),life:.4,maxLife:.4,color:'#ffd070'});
@@ -1816,6 +1876,21 @@ function drawUnit(c,u){
     c.restore(); }
   if(u.def.transport&&u.cargo&&u.cargo.length){ c.fillStyle='#bfe9ff'; c.font='bold 9px sans-serif'; c.textAlign='center'; c.textBaseline='alphabetic';
     c.fillText('▲'+u.cargo.length,0,-((cls==='heli')?16:14)); }
+  // status pips above the HP-bar anchor (screen-up, never rotated)
+  const pipY=-(u.r+15);
+  if(u.horde){ // China horde ★ pip
+    c.fillStyle='#e0524f'; c.strokeStyle='rgba(0,0,0,.5)'; c.lineWidth=0.6;
+    c.beginPath();
+    for(let i=0;i<5;i++){ const a=-Math.PI/2+i*4*Math.PI/5, rr=3.2; const px=Math.cos(a)*rr, py=pipY+Math.sin(a)*rr;
+      if(i===0)c.moveTo(px,py); else c.lineTo(px,py); }
+    c.closePath(); c.fill(); c.stroke();
+  }
+  if(u._healing){ // USA self-repair green cross pip
+    c.fillStyle='#5fe07a'; c.strokeStyle='rgba(0,0,0,.4)'; c.lineWidth=0.6;
+    const cx=u.horde?7:0;
+    c.fillRect(cx-2.6,pipY-0.9,5.2,1.8); c.strokeRect(cx-2.6,pipY-0.9,5.2,1.8);
+    c.fillRect(cx-0.9,pipY-2.6,1.8,5.2); c.strokeRect(cx-0.9,pipY-2.6,1.8,5.2);
+  }
   c.restore();
 }
 function drawBldDamage(c,b,px,py,w){   // stable procedural scorch/cracks so building health reads at a glance
@@ -2061,6 +2136,7 @@ function tooltipFor(def,isUnit){
   if(def.w) s+='\nDMG '+def.w.dmg+' ('+def.w.type+') · RNG '+def.w.rng+(def.w.aa?' · Anti-air':'');
   if(def.suicide) s+='\nSuicide blast: '+def.suicide.dmg+' dmg, area '+def.suicide.aoe;
   if(def.harv) s+='\nHarvester: carries $'+def.harv.cap;
+  if(def._fac==='CHINA'&&def.w&&!def.harv&&!def.builder&&!def.air) s+='\nHorde: +25% dmg +10% speed near 3+ comrades';
   if(def.air) s+='\nAircraft';
   if(def.hero) s+='\n★ Hero — only one per side at a time';
   return s;
