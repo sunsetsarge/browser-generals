@@ -7,6 +7,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#161a10">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-title" content="Generals">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <title>Browser Generals — Zero Hour Tribute</title>
 <style>
 :root{--panel:rgba(18,21,14,.92);--border:#4a5238;--gold:#e8c060;--text:#d8dcc8;--green:#7ec850;--red:#e05545;}
@@ -3398,6 +3403,22 @@ function dbgStressSpawn(){
     }
     setTimeout(step,60);
   }
+})();
+</script>
+<script>
+/* PWA service-worker registration — silent-fail-safe. Registering the SW
+   only affects caching/offline; it never touches game state, and any failure
+   (unsupported browser, file:// origin, network error) is swallowed so normal
+   play, ?gallery, and ?test=map all keep working. */
+(function(){
+  if(!('serviceWorker' in navigator)) return;
+  // Skip on file:// (SW requires http/https). Registration also no-ops harmlessly there.
+  if(location.protocol!=='http:' && location.protocol!=='https:') return;
+  window.addEventListener('load', function(){
+    try{
+      navigator.serviceWorker.register('sw.js').catch(function(){ /* non-fatal */ });
+    }catch(e){ /* non-fatal */ }
+  });
 })();
 </script>
 </body>

@@ -23,6 +23,12 @@ if (-not $Force -and (Test-Path $dst)) {
 if ($needsDeploy) {
   New-Item -ItemType Directory -Force -Path (Split-Path $dst) | Out-Null
   Copy-Item $src $dst -Force
+  # stage PWA shell files (manifest, service worker, launcher icons) alongside index.html
+  $pub = Split-Path $dst
+  foreach ($f in @('manifest.json','sw.js','icon-192.png','icon-512.png','icon-512-maskable.png')) {
+    $p = Join-Path $root $f
+    if (Test-Path $p) { Copy-Item $p (Join-Path $pub $f) -Force } else { Write-Warning "PWA file missing, not staged: $f" }
+  }
   # stage directional sprite frames for hosting (the <key>_0..7.png files, not the big source sheets)
   $pubAssets = Join-Path $root 'public\assets'
   New-Item -ItemType Directory -Force -Path $pubAssets | Out-Null
