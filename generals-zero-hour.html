@@ -109,6 +109,27 @@ body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-are
 #dbgPanel select{flex:1;min-width:120px;background:#252b1b;color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px;}
 #dbgPanel input[type=number]{width:84px;background:#252b1b;color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 4px;}
 #dbgClose{padding:0 7px;font-size:14px;}
+/* WS-6.4 perf readout (toggle with F3 or the debug panel button) */
+#perfMeter{position:absolute;left:10px;top:calc(46px + env(safe-area-inset-top));z-index:47;background:rgba(6,8,4,.82);border:1px solid var(--border);border-radius:5px;padding:4px 9px;font-family:monospace;font-size:12px;line-height:1.4;color:#9adf6a;pointer-events:none;white-space:pre;}
+#perfMeter.warn{color:#ffcf4d;}
+#perfMeter.bad{color:#e05545;}
+/* WS-6.1 pause menu */
+#pauseScreen{z-index:55;gap:14px;}
+.pauseBtns{display:flex;flex-direction:column;gap:9px;width:280px;}
+.menuBtn{background:#2e3424;color:var(--text);border:1px solid var(--border);border-radius:6px;padding:11px 16px;font-size:16px;cursor:pointer;text-align:left;letter-spacing:.5px;transition:.12s;}
+.menuBtn:hover{background:#3c4430;border-color:#7a8560;}
+.menuBtn:disabled{opacity:.4;cursor:not-allowed;}
+#pResume{border-color:var(--gold);color:var(--gold);}
+.pauseSettings{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 16px;width:280px;}
+.psTitle{font-size:11px;letter-spacing:2px;color:#9aa37f;border-bottom:1px solid var(--border);padding-bottom:3px;margin-bottom:8px;}
+.psRow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0;font-size:13px;cursor:pointer;}
+.psRow input[type=range]{flex:1;max-width:140px;}
+.psRow input[type=checkbox]{width:18px;height:18px;cursor:pointer;}
+.psMsg{font-size:12px;color:var(--green);min-height:16px;}
+.psMsg.err{color:var(--red);}
+/* WS-6.3 clickable production-queue chips in selInfo */
+.qBtn{display:inline-block;background:#252b1b;border:1px solid var(--border);border-radius:4px;color:var(--text);cursor:pointer;font-size:14px;line-height:1;padding:3px 5px;margin:2px 3px 0 0;}
+.qBtn:hover{background:#5a2a22;border-color:var(--red);}
 </style>
 </head>
 <body>
@@ -120,6 +141,7 @@ body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-are
   <span class="stat">🪖 <b id="tbUnits">0</b></span>
   <span id="tbWarn"></span>
   <button id="swBtn" title="FIRE SUPER WEAPON" style="display:none;background:linear-gradient(135deg,#8b0000,#cc0000);border:2px solid #ff4444;color:white;font-weight:bold;padding:6px 12px;border-radius:4px;cursor:crosshair;animation:swPulse 0.8s ease-in-out infinite alternate;font-size:12px;">⚡ SUPER WEAPON READY</button>
+  <button id="btnIdle" title="Select next idle worker">🧑‍🔧 <b id="tbIdleN">0</b></button>
   <span style="flex:1"></span>
   <button id="btnMute" title="Mute (M)">🔊</button>
   <input id="volSlider" class="deskonly" type="range" min="0" max="1" step="0.05" value="0.8" title="Volume" style="width:74px;vertical-align:middle;">
@@ -148,7 +170,10 @@ body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-are
   <div class="dbgRow"><button id="dbgReveal">Reveal map</button><button id="dbgGod">God mode</button><button id="dbgWin">Win</button></div>
   <div class="dbgSec">AUDIO</div>
   <div class="dbgRow"><button id="dbgAnnouncer">Announcer: Off</button><button id="dbgLose">Lose</button></div>
+  <div class="dbgSec">PERFORMANCE</div>
+  <div class="dbgRow"><button id="dbgPerf">FPS meter (F3)</button><button id="dbgStress">Stress: 300 units</button></div>
 </div>
+<div id="perfMeter" class="hidden">FPS —</div>
 <div id="mobileControls">
   <button id="btnTAttack" title="Attack-move"><span class="mci">⚔️</span>ATK</button>
   <button id="btnTStop" title="Stop"><span class="mci">✋</span>STOP</button>
@@ -186,9 +211,31 @@ body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-are
     <button data-p="center">◉ Center</button>
     <button data-p="random">🎲 Random</button>
   </div>
-  <button id="btnStart" disabled>SELECT A FACTION</button>
-  <div class="foot">Left-drag select · Right-click move/attack · A = attack-move · Ctrl+1-9 groups · Arrows/edges/minimap scroll</div>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <button id="btnStart" disabled>SELECT A FACTION</button>
+    <button id="btnContinue" class="hidden" style="font-size:16px;padding:10px 28px;background:#2e3424;color:var(--gold);border:2px solid var(--border);border-radius:6px;cursor:pointer;letter-spacing:1px;">↻ CONTINUE</button>
+  </div>
+  <div class="foot">Left-drag select · Right-click move/attack · A = attack-move · Ctrl+1-9 groups · Esc = pause · Arrows/edges/minimap scroll</div>
   <span id="credit-bg">SunsetSarge</span>
+</div>
+
+<div id="pauseScreen" class="ov hidden">
+  <h1 style="font-size:38px;letter-spacing:3px;color:var(--gold);text-shadow:0 0 24px #e8c06055;">PAUSED</h1>
+  <div class="pauseBtns">
+    <button id="pResume" class="menuBtn">▶ Resume</button>
+    <button id="pSave" class="menuBtn">💾 Save Game</button>
+    <button id="pLoad" class="menuBtn">📂 Load Game</button>
+    <button id="pRestart" class="menuBtn">↻ Restart Match</button>
+    <button id="pQuit" class="menuBtn">✖ Quit to Menu</button>
+  </div>
+  <div class="pauseSettings">
+    <div class="psTitle">SETTINGS</div>
+    <label class="psRow"><span>🔊 Volume</span><input id="pVol" type="range" min="0" max="1" step="0.05"></label>
+    <label class="psRow"><span>Mute</span><input id="pMute" type="checkbox"></label>
+    <label class="psRow"><span>🗣 Announcer</span><input id="pAnnouncer" type="checkbox"></label>
+  </div>
+  <div id="pSaveMsg" class="psMsg"></div>
+  <div class="foot" style="position:static;margin-top:4px;">Esc or P resumes · settings persist across matches</div>
 </div>
 
 <div id="endScreen" class="ov hidden">
@@ -203,8 +250,9 @@ body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-are
   Right-click — move / attack / harvest / set rally<br>
   <b>A</b> then click — attack-move · <b>S</b> — stop<br>
   Ctrl+1–9 assign group · 1–9 select (tap twice = jump)<br>
+  Double-click a unit — select all of its type on screen<br>
   Arrow keys / screen edges / minimap — scroll camera<br>
-  <b>P</b> pause · <b>M</b> mute · <b>Esc</b> cancel · <b>H</b> close help<br>
+  <b>P</b>/<b>Esc</b> pause menu · <b>M</b> mute · <b>F</b> jump to alert · <b>F3</b> fps · <b>H</b> close help<br>
   Build structures near your base. Harvesters collect 💰 from gold supply piles.
   Keep power ⚡ positive or production slows and defenses go offline (GLA needs no power).
   Destroy every enemy structure to win.
@@ -535,13 +583,19 @@ function unitCd(u){ return u.def.w.cd/(u.owner===0?DBG.fireRate:1); }
 function hordeEligible(u){ return facOf(u.owner).key==='CHINA'&&u.def.w&&!u.def.harv&&!u.def.builder&&!u.air; }
 function recomputeHorde(u){
   if(!hordeEligible(u)){ u.horde=false; return; }
-  const R=FACTION_MODS.CHINA.hordeRadius, R2=R*R; let cnt=0;
-  for(const o of G.units){
-    if(o===u||o.dead||o.owner!==u.owner) continue;
-    if(!hordeEligible(o)) continue;
-    const dx=o.x-u.x, dy=o.y-u.y; if(dx*dx+dy*dy<=R2){ if(++cnt>=FACTION_MODS.CHINA.hordeCount) break; }
+  // WS-6.4: query the per-tick spatial grid instead of scanning all units.
+  // hordeRadius (160) > grid cell (40), so widen the neighbour search to cover it.
+  const R=FACTION_MODS.CHINA.hordeRadius, R2=R*R, need=FACTION_MODS.CHINA.hordeCount;
+  const c=SGRID.cell, span=Math.ceil(R/c), cx=Math.floor(u.x/c), cy=Math.floor(u.y/c);
+  let cnt=0;
+  for(let gy=cy-span;gy<=cy+span&&cnt<need;gy++) for(let gx=cx-span;gx<=cx+span;gx++){
+    const b=SGRID.map.get(SGRID._k(gx,gy)); if(!b) continue;
+    for(let i=0;i<b.length;i++){ const o=b[i];
+      if(o===u||o.dead||o.owner!==u.owner||!hordeEligible(o)) continue;
+      const dx=o.x-u.x, dy=o.y-u.y; if(dx*dx+dy*dy<=R2){ if(++cnt>=need) break; } }
+    if(cnt>=need) break;
   }
-  u.horde=cnt>=FACTION_MODS.CHINA.hordeCount;
+  u.horde=cnt>=need;
 }
 function unitHpMax(u){ return Math.round(u.def.hp*VET_HP[u.vet||0]*perkMul(u.owner,'armor',0.15)*dbgMul(u,'hp')); }
 function checkPromote(u){
@@ -1392,6 +1446,7 @@ function explosion(x,y,size){
   if(sfxVol(x,y)>0){ sfx(size>=30?'bigboom':'boom',x,y); if(size>30) G.shake=Math.min(8,G.shake+size/12); }
   ambBattle();   // feed the ambient battle-intensity sublayer
 }
+const PART_CAP=600;   // WS-6.4 hard cap on particles; oldest cosmetic ones drop first
 function updateParts(dt){
   for(const p of G.parts){
     p.life-=dt;
@@ -1400,19 +1455,46 @@ function updateParts(dt){
     if(p.type==='smoke') p.size+=10*dt;
   }
   G.parts=G.parts.filter(p=>p.life>0);
+  // enforce the cap: drop oldest cosmetic particles (keep informational 'text' floaters)
+  if(G.parts.length>PART_CAP){
+    let over=G.parts.length-PART_CAP;
+    for(let i=0;i<G.parts.length&&over>0;i++){ if(G.parts[i].type!=='text'){ G.parts[i]._cull=true; over--; } }
+    G.parts=G.parts.filter(p=>!p._cull);
+  }
+}
+/* WS-6.4 spatial hash grid — rebuilt each tick from the live unit list. Buckets units
+   into CELL-sized cells so neighbour queries (separation, horde counting) are O(n) instead
+   of O(n²). Cell = 2×max unit radius (~40px) so a unit only ever touches its 3×3 cell block. */
+const SGRID={cell:40, map:new Map(), _k(cx,cy){ return cx*73856093^cy*19349663; }};
+function buildSpatialGrid(){
+  SGRID.map.clear();
+  const c=SGRID.cell, us=G.units;
+  for(let i=0;i<us.length;i++){ const u=us[i]; if(u.dead) continue;
+    const key=SGRID._k(Math.floor(u.x/c),Math.floor(u.y/c));
+    let b=SGRID.map.get(key); if(!b){ b=[]; SGRID.map.set(key,b); } b.push(u);
+  }
+}
+// visit every unit in the 3×3 cell block around (x,y); cb receives each candidate.
+function forNeighbors(x,y,cb){
+  const c=SGRID.cell, cx=Math.floor(x/c), cy=Math.floor(y/c);
+  for(let gy=cy-1;gy<=cy+1;gy++) for(let gx=cx-1;gx<=cx+1;gx++){
+    const b=SGRID.map.get(SGRID._k(gx,gy)); if(!b) continue;
+    for(let i=0;i<b.length;i++) cb(b[i]);
+  }
 }
 function separation(){
   const us=G.units;
   for(let i=0;i<us.length;i++){ const a=us[i]; if(a.dead) continue;
-    for(let j=i+1;j<us.length;j++){ const b=us[j]; if(b.dead||a.air!==b.air) continue;
+    forNeighbors(a.x,a.y,b=>{
+      if(b===a||b.dead||a.air!==b.air||b.id<=a.id) return;   // id<=a.id: process each pair once
       const dx=b.x-a.x, dy=b.y-a.y; const md=a.r+b.r+2;
-      if(Math.abs(dx)>md||Math.abs(dy)>md) continue;
+      if(Math.abs(dx)>md||Math.abs(dy)>md) return;
       const d=Math.hypot(dx,dy);
       if(d<md&&d>0.01){ const push=(md-d)*0.35, px=dx/d*push, py=dy/d*push;
         if(a.air||!isBlockedW(a.x-px,a.y-py)){ a.x-=px; a.y-=py; }
         if(b.air||!isBlockedW(b.x+px,b.y+py)){ b.x+=px; b.y+=py; }
       } else if(d<=0.01){ a.x+=rand(-2,2); a.y+=rand(-2,2); }
-    }
+    });
   }
 }
 /* ================= PLACEMENT ================= */
@@ -1812,6 +1894,49 @@ addEventListener('mouseup',e=>{
   }
 });
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
+// WS-6.3 (2) desktop double-click a unit → select all of that type on screen (mobile parity)
+canvas.addEventListener('dblclick',e=>{
+  if(G.state!=='play'||e.button!==0) return;
+  const w=toWorld(e.clientX,e.clientY); const ent=entAt(w.x,w.y);
+  if(ent&&ent.owner===0&&ent.kind==='unit') selectSameTypeOnScreen(ent);
+});
+function selectSameTypeOnScreen(ent){
+  const k=ent.def.k; clearSel();
+  const L=G.cam.x,T=G.cam.y,R=G.cam.x+innerWidth,B=G.cam.y+innerHeight;
+  for(const u of G.units) if(!u.dead&&u.owner===0&&u.def.k===k&&u.x>L&&u.x<R&&u.y>T&&u.y<B) G.sel.push(u);
+  if(!G.sel.length) G.sel=[ent];
+  if(alertReady('ack',0.15)) sfx('ack',undefined,undefined,{f:FAC_PITCH[facOf(0).key]||520});
+}
+// WS-6.3 (5) jump camera to the most recent attack ping
+function jumpToLastPing(){
+  if(G.state!=='play') return;
+  const p=G.pings[G.pings.length-1]; if(!p) return;
+  G.cam.x=clamp(p.x-(innerWidth-uiSidebar())/2,0,Math.max(0,WW-innerWidth+uiSidebar()));
+  G.cam.y=clamp(p.y-innerHeight/2,0,Math.max(0,WH-innerHeight+TOPBAR));
+  sfx('click');
+}
+// WS-6.3 (3) cycle to the next idle harvester/worker, select + center it
+let _idleCycleI=0;
+function idleWorkers(){ return G.units.filter(u=>!u.dead&&u.owner===0&&(u.def.harv||u.def.builder)&&(u.order.t==='idle'||(u.def.harv&&!u.node&&u.carry===0&&u.hphase!=='return'))); }
+function cycleIdleWorker(){
+  const list=idleWorkers(); if(!list.length){ sfx('deny'); return; }
+  _idleCycleI=(_idleCycleI)%list.length;
+  const u=list[_idleCycleI]; _idleCycleI++;
+  clearSel(); G.sel=[u];
+  G.cam.x=clamp(u.x-(innerWidth-uiSidebar())/2,0,Math.max(0,WW-innerWidth+uiSidebar()));
+  G.cam.y=clamp(u.y-innerHeight/2,0,Math.max(0,WH-innerHeight+TOPBAR));
+  sfx('ack',undefined,undefined,{f:FAC_PITCH[facOf(0).key]||520});
+}
+// WS-6.3 (1) cancel one queued item (by index) from a building's queue, refunding its cost
+function cancelQueueItem(b,idx){
+  if(!b||!b.queue||idx<0||idx>=b.queue.length) return;
+  const def=b.queue[idx];
+  addMoney(b.owner,def.cost);                 // full refund
+  if(idx===0) b.qProg=0;                       // was in progress → reset progress
+  b.queue.splice(idx,1);
+  if(b.owner===0) sfx('cash');
+  updateHud();
+}
 addEventListener('mouseout',()=>{G.mouse.inside=false;});
 addEventListener('mouseover',()=>{G.mouse.inside=true;});
 
@@ -1907,12 +2032,20 @@ let lastGroupKey='',lastGroupT=0;
 addEventListener('keydown',e=>{
   if(G.state!=='play') return;
   const k=e.key.toLowerCase();
-  if(k==='escape'){ if(G.placing){G.placing=null;G.wallDrag=null;} else if(G.amoveMode)G.amoveMode=false; else if(swTargeting){swTargeting=false;canvas.style.cursor='';updateSwBtn();} else clearSel(); }
+  if(k==='escape'){
+    if(!$('pauseScreen').classList.contains('hidden')){ closePauseMenu(); }
+    else if(G.placing){G.placing=null;G.wallDrag=null;} else if(G.amoveMode)G.amoveMode=false;
+    else if(swTargeting){swTargeting=false;canvas.style.cursor='';updateSwBtn();}
+    else if(G.sel.length) clearSel();
+    else openPauseMenu();               // Esc with nothing to cancel → pause menu
+  }
   else if(k==='a'&&!e.ctrlKey){ if(G.sel.some(s=>s.kind==='unit'&&s.owner===0)) G.amoveMode=true; }
   else if(k==='s'){ for(const u of G.sel) if(u.kind==='unit'&&u.owner===0){ u.order={t:'idle'}; u.dest=null; u.path=null; u.tmpTg=null; u.ax=u.x; u.ay=u.y; } }
-  else if(k==='p'){ G.paused=!G.paused; document.getElementById('btnPause').textContent=G.paused?'▶':'⏸'; }
+  else if(k==='p'){ togglePauseMenu(); }
   else if(k==='m'){ toggleMute(); }
   else if(k==='h'||k==='f1'){ document.getElementById('helpBox').classList.toggle('hidden'); e.preventDefault(); }
+  else if(k==='f3'){ togglePerf(); e.preventDefault(); }
+  else if(k==='f'){ jumpToLastPing(); }   // WS-6.3 jump camera to last attack ping
   else if(/^[1-9]$/.test(e.key)){
     if(e.ctrlKey){ G.groups[e.key]=G.sel.filter(s=>s.owner===0&&s.kind==='unit'); e.preventDefault(); sfx('click'); }
     else {
@@ -2493,7 +2626,9 @@ function updateHud(){
   if(G.pFac.key==='GLA'){ pe.textContent='—'; pe.style.color='#9aa37f'; }
   else { pe.textContent=p+'/'+u; pe.style.color=u>p?'#e05545':'#7ec850'; }
   $('tbUnits').textContent=G.units.filter(x=>x.owner===0&&!x.dead).length;
-  $('tbWarn').textContent=lowPower(0)?'⚠ LOW POWER':'';
+  const lp0=lowPower(0);
+  $('tbWarn').textContent=lp0?'⚠ LOW POWER':'';
+  { const idleN=idleWorkers().length, ib=$('btnIdle'); if(ib){ $('tbIdleN').textContent=idleN; ib.style.opacity=idleN?'1':'.45'; } }
   for(const def of G.pFac.buildings){
     const b=btnRefs.build[def.k];
     const lock=def.req&&!hasDone(0,def.req);
@@ -2510,7 +2645,10 @@ function updateHud(){
     for(const pr of producers){ for(const d of pr.queue) if(d===def) q++;
       if(pr.queue[0]===def) pg=Math.max(pg,pr.qProg/def.t); }
     b.querySelector('.q').textContent=heroBlocked?'★':(q>0?q:'');
-    b.querySelector('.pg').style.width=(pg*100)+'%';
+    const pgEl=b.querySelector('.pg');
+    pgEl.style.width=(pg*100)+'%';
+    // WS-6.3 (4) gray out the production progress bar while under low power (production slowed)
+    pgEl.style.background=(lp0&&pg>0)?'#8a8560':'var(--green)';
   }
   // selection info
   const live=G.sel.filter(e=>!e.dead); G.sel=live;
@@ -2526,7 +2664,11 @@ function updateHud(){
     if(e.kind==='unit'&&e.def.harv) s+='<br>Cargo $'+e.carry+' / '+e.def.harv.cap;
     if(e.kind==='unit'&&e.def.transport){ s+='<br>Troops '+e.cargo.length+' / '+e.def.transport.cap;
       if(e.cargo.length) s+='<button class="perkBtn actBtn" data-act="unload">⬇ Unload Troops</button>'; }
-    if(e.kind==='building'&&e.queue&&e.queue.length) s+='<br>Queue: '+e.queue.map(d=>d.i).join(' ');
+    if(e.kind==='building'&&e.queue&&e.queue.length){
+      // WS-6.3 (1) clickable queue — click an item to cancel it and refund its cost
+      s+='<br>Queue <span style="color:#9aa37f;font-size:10px">(click to cancel · refund)</span><br>'+
+        e.queue.map((d,qi)=>'<button class="qBtn" data-qidx="'+qi+'" title="Cancel '+d.n+' (refund $'+d.cost+')">'+d.i+(qi===0?'…':'')+'</button>').join('');
+    }
     if(e.kind==='building'&&e.def.garrison){ s+='<br>Garrison '+e.garrison.length+' / '+e.def.garrison;
       if(e.garrison.length) s+='<button class="perkBtn actBtn" data-act="eject">⬇ Eject Troops</button>'; }
     if(e.kind==='building'&&!e.done) s+='<br>Constructing… '+Math.floor(e.prog/e.def.t*100)+'%';
@@ -2566,6 +2708,7 @@ function placeBase(owner,base,fac){
   for(let i=0;i<2;i++){ const u=createUnit(owner,rocket,(tx-1+i*2)*TILE,(ty+6)*TILE); u.ax=u.x;u.ay=u.y; }
 }
 function startGame(facKey,diffKey,mapKey,posKey){
+  G.lastSetup={facKey,diffKey:diffKey||'normal',mapKey:mapKey||'medium',posKey:posKey||'bl'};   // WS-6.1 for Restart
   G.perks={0:{weapons:0,armor:0,optics:0,drill:0}, 1:{weapons:0,armor:0,optics:0,drill:0}};
   G.stats={built:0,lost:0,kills:0,razed:0}; G.ai={nextWave:90,defendCD:0,perkCD:30};
   setMapSize(mapKey||'medium');
@@ -2594,6 +2737,224 @@ function startGame(facKey,diffKey,mapKey,posKey){
   G._lowPowerPrev=false; G._superReadyPrev=false; _ambBattle=0;
   audioInit();                                    // ensure buses exist so the wind bed can start
   G.state='play'; G.time=0;
+}
+/* ================= WS-6.1 PAUSE MENU ================= */
+function openPauseMenu(){
+  if(G.state!=='play') return;
+  G.paused=true;
+  const pb=$('btnPause'); if(pb) pb.textContent='▶';
+  // sync settings widgets to current AUDIO state
+  const v=$('pVol'); if(v) v.value=AUDIO.vol;
+  const m=$('pMute'); if(m) m.checked=muted;
+  const a=$('pAnnouncer'); if(a) a.checked=AUDIO.announcer;
+  $('pLoad').disabled=!hasSave();
+  $('pSaveMsg').textContent=''; $('pSaveMsg').classList.remove('err');
+  $('pauseScreen').classList.remove('hidden');
+}
+function closePauseMenu(){
+  G.paused=false;
+  const pb=$('btnPause'); if(pb) pb.textContent='⏸';
+  $('pauseScreen').classList.add('hidden');
+}
+function togglePauseMenu(){ if($('pauseScreen').classList.contains('hidden')) openPauseMenu(); else closePauseMenu(); }
+// Clean teardown so Quit-to-menu (and Restart) don't leak the previous match's state.
+function resetMatchState(){
+  G.units=[]; G.buildings=[]; G.projs=[]; G.parts=[]; G.supplies=[]; G.pings=[];
+  G.sel=[]; G.groups={}; G.placing=null; G.amoveMode=false; G.wallDrag=null;
+  G.banner=null; G.shake=0; G.drag=null; nextId=1;
+  swTargeting=false; if(canvas) canvas.style.cursor='';
+  G.state='menu'; G.paused=false; G.time=0;
+  SGRID.map.clear();
+}
+function quitToMenu(){
+  closePauseMenu();
+  ambStop();
+  resetMatchState();
+  $('topbar').classList.add('hidden');
+  $('sidebar').classList.remove('open'); $('sidebar').classList.add('hidden');
+  $('helpBox').classList.add('hidden');
+  $('endScreen').classList.add('hidden');
+  $('startScreen').classList.remove('hidden');
+}
+/* ================= WS-6.2 SAVE / LOAD ================= */
+const SAVE_KEY='bg_save', SAVE_VER=1;
+// base64 <-> Uint8Array (persist the terrain/block/fog arrays compactly)
+function u8ToB64(u8){ let s=''; const CH=0x8000; for(let i=0;i<u8.length;i+=CH){ s+=String.fromCharCode.apply(null,u8.subarray(i,i+CH)); } return btoa(s); }
+function b64ToU8(b64){ const s=atob(b64), u8=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u8[i]=s.charCodeAt(i); return u8; }
+function facKeyOf(fac){ return fac===G.pFac?'__P':fac===G.aFac?'__A':fac.key; }   // resolved on load
+function defRef(def,owner){ // {o:owner, u|b: key}; owner tells us which faction's roster to look in
+  const fac=owner===0?G.pFac:G.aFac;
+  if(fac.units.indexOf(def)>=0) return {o:owner,u:def.k};
+  if(fac.buildings.indexOf(def)>=0) return {o:owner,b:def.k};
+  // fallback: search both factions (shouldn't happen — defs are per-owner)
+  for(const fk of Object.keys(FACTIONS)){ const F=FACTIONS[fk];
+    if(F.units.indexOf(def)>=0) return {fk,u:def.k}; if(F.buildings.indexOf(def)>=0) return {fk,b:def.k}; }
+  return null;
+}
+function resolveDef(ref){ if(!ref) return null;
+  const F = ref.fk?FACTIONS[ref.fk] : (ref.o===0?G.pFac:G.aFac);
+  if(!F) return null;
+  return ref.u!=null ? F.units.find(u=>u.k===ref.u) : F.buildings.find(b=>b.k===ref.b);
+}
+function idOf(e){ return (e&&e.id!=null)?e.id:null; }   // reference → id (or null)
+function serializeOrder(o){ if(!o) return {t:'idle'};
+  const r={t:o.t}; if(o.x!=null)r.x=o.x; if(o.y!=null)r.y=o.y;
+  if(o.tg)r.tg=idOf(o.tg); if(o.b)r.b=idOf(o.b); return r; }
+function serializeUnit(u){
+  return {id:u.id,owner:u.owner,def:defRef(u.def,u.owner),x:u.x,y:u.y,hp:u.hp,maxHp:u.maxHp,
+    face:u.face,cd:u.cd,scanT:u.scanT,order:serializeOrder(u.order),tmpTg:idOf(u.tmpTg),
+    dest:u.dest?{x:u.dest.x,y:u.dest.y}:null, path:u.path?u.path.map(p=>({x:p.x,y:p.y})):null, pi:u.pi,
+    ax:u.ax,ay:u.ay,lastX:u.lastX,lastY:u.lastY,stuckT:u.stuckT,repathT:u.repathT,repathTg:u.repathTg,
+    flash:u.flash,vet:u.vet,kills:u.kills,carry:u.carry,hphase:u.hphase,hTimer:u.hTimer,
+    node:idOf(u.node),depot:idOf(u.depot),cargo:(u.cargo||[]).map(c=>c.id),
+    horde:!!u.horde,hordeT:u.hordeT,lastCombatT:u.lastCombatT,recoil:u.recoil,
+    air:u.air,armor:u.armor,r:u.r,_boarded:!!u._boarded,_garrisoned:!!u._garrisoned,dead:!!u.dead};
+}
+function serializeBuilding(b){
+  return {id:b.id,owner:b.owner,def:defRef(b.def,b.owner),tx:b.tx,ty:b.ty,size:b.size,x:b.x,y:b.y,r:b.r,
+    hp:b.hp,maxHp:b.maxHp,armor:b.armor,done:b.done,prog:b.prog,
+    queue:(b.queue||[]).map(d=>defRef(d,b.owner)),qProg:b.qProg,cd:b.cd,scanT:b.scanT,turret:b.turret,
+    tmpTg:idOf(b.tmpTg),superT:b.superT,garrison:(b.garrison||[]).map(g=>g.id),
+    rally:b.rally?{x:b.rally.x,y:b.rally.y}:null,flash:b.flash};
+}
+function serialize(){
+  if(G.state!=='play') return null;
+  // collect ALL units incl. those tucked inside cargo/garrison (not in G.units while boarded)
+  const allUnits=[...G.units];
+  for(const u of G.units) if(u.cargo) for(const c of u.cargo) allUnits.push(c);
+  for(const b of G.buildings) if(b.garrison) for(const g of b.garrison) allUnits.push(g);
+  // ensure supplies have ids (they normally don't)
+  let sid=1; for(const s of G.supplies){ if(s.id==null) s.id='s'+(sid++); }
+  return {
+    v:SAVE_VER, ts:Date.now(),
+    setup:G.lastSetup, pFac:G.pFac.key, aFac:G.aFac.key, diff:diffKeyOf(G.diff),
+    biome:curBiome.key, MW,MH,
+    money:G.money, aiMoney:G.aiMoney, time:G.time, nextId,
+    stats:G.stats, ai:G.ai, perks:G.perks, upgrades:G.upgrades,
+    cam:{x:G.cam.x,y:G.cam.y},
+    pBase:{tx:P_BASE.tx,ty:P_BASE.ty}, aBase:{tx:A_BASE.tx,ty:A_BASE.ty},
+    terr:u8ToB64(terr), block:u8ToB64(blockGrid), fogExp:u8ToB64(fogExp), fogVis:u8ToB64(fogVis),
+    decor, roads, waterTiles,
+    supplies:G.supplies.map(s=>({id:s.id,tx:s.tx,ty:s.ty,x:s.x,y:s.y,amount:s.amount})),
+    units:allUnits.map(serializeUnit),
+    buildings:G.buildings.map(serializeBuilding),
+    groups:Object.fromEntries(Object.entries(G.groups).map(([k,arr])=>[k,arr.map(u=>u.id)])),
+    sel:G.sel.map(e=>e.id),
+    lowPowerPrev:!!G._lowPowerPrev, superReadyPrev:!!G._superReadyPrev,
+  };
+}
+function diffKeyOf(d){ for(const k of Object.keys(DIFFS)) if(DIFFS[k]===d) return k; return 'normal'; }
+function deserialize(S){
+  if(!S||S.v!==SAVE_VER) throw new Error('save version mismatch');
+  resetMatchState();
+  // factions / difficulty / biome
+  G.pFac=FACTIONS[S.pFac]; G.aFac=FACTIONS[S.aFac]; G.diff=DIFFS[S.diff]||DIFFS.normal;
+  curBiome=BIOMES[S.biome]||BIOMES.desert;
+  G.lastSetup=S.setup||{facKey:S.pFac,diffKey:S.diff,mapKey:'medium',posKey:'bl'};
+  // map dims + arrays
+  setMapSize(mapKeyForDims(S.MW));    // reallocs terr/block/fog to the right size
+  MW=S.MW; MH=S.MH; WW=MW*TILE; WH=MH*TILE; MSC=216/WW;
+  terr=b64ToU8(S.terr); blockGrid=b64ToU8(S.block); fogExp=b64ToU8(S.fogExp); fogVis=b64ToU8(S.fogVis);
+  fogCanvas.width=MW; fogCanvas.height=MH;
+  pfG=new Float32Array(MW*MH); pfPar=new Int32Array(MW*MH); pfClosed=new Uint8Array(MW*MH);
+  decor=S.decor||[]; roads=S.roads||[]; waterTiles=S.waterTiles||[];
+  P_BASE={tx:S.pBase.tx,ty:S.pBase.ty}; A_BASE={tx:S.aBase.tx,ty:S.aBase.ty};
+  // scalars
+  G.money=S.money; G.aiMoney=S.aiMoney; G.time=S.time; nextId=S.nextId||1;
+  G.stats=S.stats||G.stats; G.ai=S.ai||G.ai; G.perks=S.perks||G.perks; G.upgrades=S.upgrades||G.upgrades;
+  G.cam.x=S.cam.x; G.cam.y=S.cam.y;
+  G._lowPowerPrev=!!S.lowPowerPrev; G._superReadyPrev=!!S.superReadyPrev;
+  // supplies (rebuild first so units' node ids can relink to them)
+  const byId=new Map();
+  G.supplies=(S.supplies||[]).map(s=>{ const o={id:s.id,tx:s.tx,ty:s.ty,x:s.x,y:s.y,amount:s.amount}; byId.set(s.id,o); return o; });
+  // units — first pass: construct bare objects, register by id
+  const units=(S.units||[]).map(su=>{
+    const def=resolveDef(su.def); if(!def) return null;
+    const u={id:su.id,kind:'unit',owner:su.owner,def,x:su.x,y:su.y,hp:su.hp,maxHp:su.maxHp,
+      air:!!su.air,armor:su.armor,r:su.r,face:su.face,cd:su.cd,scanT:su.scanT,
+      order:{t:(su.order&&su.order.t)||'idle'},tmpTg:null,path:su.path||null,pi:su.pi||0,dest:su.dest||null,
+      ax:su.ax,ay:su.ay,lastX:su.lastX,lastY:su.lastY,stuckT:su.stuckT||0,repathT:su.repathT||0,repathTg:su.repathTg||0,
+      flash:su.flash||0,dead:!!su.dead,vet:su.vet||0,kills:su.kills||0,carry:su.carry||0,
+      hphase:su.hphase||'go',hTimer:su.hTimer||0,node:null,depot:null,cargo:[],
+      horde:!!su.horde,hordeT:su.hordeT||0,lastCombatT:su.lastCombatT,recoil:su.recoil||0,
+      _boarded:!!su._boarded,_garrisoned:!!su._garrisoned,_raw:su};
+    byId.set(u.id,u); return u;
+  }).filter(Boolean);
+  // buildings — first pass
+  const builds=(S.buildings||[]).map(sb=>{
+    const def=resolveDef(sb.def); if(!def) return null;
+    const b={id:sb.id,kind:'building',owner:sb.owner,def,tx:sb.tx,ty:sb.ty,size:sb.size,x:sb.x,y:sb.y,r:sb.r,
+      hp:sb.hp,maxHp:sb.maxHp,armor:sb.armor||'building',air:false,done:!!sb.done,prog:sb.prog||0,
+      queue:(sb.queue||[]).map(resolveDef).filter(Boolean),qProg:sb.qProg||0,cd:sb.cd||0,scanT:sb.scanT||0,
+      turret:sb.turret||0,tmpTg:null,superT:sb.superT||0,garrison:[],
+      rally:sb.rally||{x:sb.x,y:sb.y+60},flash:sb.flash||0,dead:false,_raw:sb};
+    byId.set(b.id,b); return b;
+  }).filter(Boolean);
+  // second pass: relink references by id
+  const ref=id=>{ if(id==null) return null; const e=byId.get(id); return (e&&!e.dead)?e:( byId.get(id)||null ); };
+  for(const u of units){ const su=u._raw;
+    if(su.order){ const o={t:su.order.t}; if(su.order.x!=null)o.x=su.order.x; if(su.order.y!=null)o.y=su.order.y;
+      if(su.order.tg!=null)o.tg=byId.get(su.order.tg)||null; if(su.order.b!=null)o.b=byId.get(su.order.b)||null; u.order=o; }
+    u.tmpTg=su.tmpTg!=null?(byId.get(su.tmpTg)||null):null;
+    u.node=su.node!=null?(byId.get(su.node)||null):null;
+    u.depot=su.depot!=null?(byId.get(su.depot)||null):null;
+    u.cargo=(su.cargo||[]).map(id=>byId.get(id)).filter(Boolean);
+    delete u._raw;
+  }
+  for(const b of builds){ const sb=b._raw;
+    b.tmpTg=sb.tmpTg!=null?(byId.get(sb.tmpTg)||null):null;
+    b.garrison=(sb.garrison||[]).map(id=>byId.get(id)).filter(Boolean);
+    delete b._raw;
+  }
+  // only free-standing units go into G.units; boarded/garrisoned ones live inside their host arrays
+  G.units=units.filter(u=>!u._boarded&&!u._garrisoned&&!u.dead);
+  G.buildings=builds;
+  // groups + selection
+  G.groups={}; for(const [k,ids] of Object.entries(S.groups||{})) G.groups[k]=ids.map(id=>byId.get(id)).filter(u=>u&&!u.dead);
+  G.sel=(S.sel||[]).map(id=>byId.get(id)).filter(e=>e&&!e.dead);
+  // rebuild derived visuals
+  renderTerrain();
+  buildSidebar();
+  $('tbFaction').textContent=G.pFac.name+' vs '+G.aFac.name;
+  $('tbFaction').style.color=G.pFac.color;
+  updateFog();
+  G.state='play'; G.paused=false;
+}
+function mapKeyForDims(n){ for(const k of Object.keys(MAP_SIZES)) if(MAP_SIZES[k]===n) return k; return 'medium'; }
+
+function hasSave(){ try{ return !!localStorage.getItem(SAVE_KEY); }catch(e){ return false; } }
+function saveMeta(){ try{ const raw=localStorage.getItem(SAVE_KEY); if(!raw) return null; const s=JSON.parse(raw); if(s.v!==SAVE_VER) return null; return s; }catch(e){ return null; } }
+function writeSave(){
+  const S=serialize(); if(!S) return false;
+  try{ localStorage.setItem(SAVE_KEY,JSON.stringify(S)); return true; }
+  catch(e){ console.warn('save failed',e); return false; }
+}
+function doSaveGame(){
+  const ok=writeSave(); const m=$('pSaveMsg');
+  if(m){ m.classList.toggle('err',!ok); m.textContent=ok?'✓ Game saved.':'Save failed (storage full?)'; }
+  if(ok){ sfx('built'); $('pLoad').disabled=false; const cb=$('btnContinue'); if(cb) cb.classList.remove('hidden'); }
+}
+function loadSaveFromStorage(){
+  const s=saveMeta(); if(!s) return false;
+  try{ deserialize(s); return true; }
+  catch(e){ console.warn('load failed',e); return false; }
+}
+function doLoadGame(){
+  if(!loadSaveFromStorage()){ const m=$('pSaveMsg'); if(m){ m.classList.add('err'); m.textContent='Load failed (no valid save).'; } return; }
+  // ensure HUD chrome is visible & menus closed (load may be called from pause or start screen)
+  $('pauseScreen').classList.add('hidden'); $('endScreen').classList.add('hidden');
+  $('startScreen').classList.add('hidden');
+  $('topbar').classList.remove('hidden'); $('sidebar').classList.remove('hidden'); $('helpBox').classList.add('hidden');
+  audioInit(); sfx('click');
+}
+let _autosaveT=0;
+function autosaveTick(dt){ _autosaveT-=dt; if(_autosaveT<=0){ _autosaveT=60; if(G.state==='play') writeSave(); } }
+
+// Restart the current match with the same faction/difficulty/map/position settings.
+function restartMatch(){
+  const s=G.lastSetup; ambStop(); resetMatchState();
+  if(s) startGame(s.facKey,s.diffKey,s.mapKey,s.posKey);
+  else location.reload();   // fallback if we somehow lost the setup
 }
 function endGame(win){
   if(G.state==='over') return;      // guard against double-fire
@@ -2626,6 +2987,8 @@ function update(dt){
   G.shake=Math.max(0,G.shake-dt*14);
   // AI income
   G.aiMoney+=G.diff.income*dt;
+  // WS-6.4: rebuild the spatial hash once per tick; horde-count + separation both read it
+  buildSpatialGrid();
   // entities
   for(const u of G.units) updateUnit(u,dt);
   for(const b of G.buildings) updateBuilding(b,dt);
@@ -2652,6 +3015,8 @@ function update(dt){
     if(swR&&!G._superReadyPrev){ sfx('superReady'); }        // own superweapon ready (rising edge)
     G._superReadyPrev=swR;
   }
+  // WS-6.2 autosave every 60s of play
+  autosaveTick(dt);
   // win/lose
   G.winT-=dt;
   if(G.winT<=0){ G.winT=1;
@@ -2661,12 +3026,25 @@ function update(dt){
 }
 
 let lastT=performance.now();
+// WS-6.4 fps meter (toggleable). Rolling average over ~0.5s so the readout is stable.
+const PERF={on:false, frames:0, acc:0, fps:0};
+function togglePerf(force){ PERF.on=(force===undefined)?!PERF.on:!!force;
+  const el=document.getElementById('perfMeter'); if(el) el.classList.toggle('hidden',!PERF.on);
+  const btn=document.getElementById('dbgPerf'); if(btn) btn.classList.toggle('on',PERF.on); }
 function frame(now){
   requestAnimationFrame(frame);
   const dt=Math.min(0.05,(now-lastT)/1000); lastT=now;
   if(G.state==='play'&&!G.paused) { G.time+=dt; update(dt); }
   if(AC) ambTick(dt);
   render();
+  if(PERF.on){
+    PERF.frames++; PERF.acc+=dt;
+    if(PERF.acc>=0.5){ PERF.fps=PERF.frames/PERF.acc; PERF.frames=0; PERF.acc=0;
+      const el=document.getElementById('perfMeter');
+      if(el){ const nu=G.units.filter(u=>!u.dead).length;
+        el.textContent='FPS '+PERF.fps.toFixed(0)+'\nunits '+nu+'  parts '+G.parts.length;
+        el.classList.toggle('warn',PERF.fps<55&&PERF.fps>=40); el.classList.toggle('bad',PERF.fps<40); } }
+  }
 }
 requestAnimationFrame(frame);
 
@@ -2708,6 +3086,27 @@ function initDebug(){
   { const ab=$d('dbgAnnouncer'); if(ab){ ab.classList.toggle('on',AUDIO.announcer); ab.textContent='Announcer: '+(AUDIO.announcer?'On':'Off');
       ab.onclick=()=>{ AUDIO.announcer=!AUDIO.announcer; saveAudio(); ab.classList.toggle('on',AUDIO.announcer); ab.textContent='Announcer: '+(AUDIO.announcer?'On':'Off'); if(AUDIO.announcer) announce('Announcer online'); }; } }
   { const lb=$d('dbgLose'); if(lb) lb.onclick=()=>{ if(G.state==='play') for(const b of G.buildings) if(b.owner===0&&!b.dead) killEnt(b,null); }; }
+  { const pb=$d('dbgPerf'); if(pb) pb.onclick=()=>togglePerf(); }
+  { const sb=$d('dbgStress'); if(sb) sb.onclick=dbgStressSpawn; }
+}
+// WS-6.4 stress test: spawn ~300 combat-capable ground units in two facing armies near
+// screen center and attack-move them into each other, so the fps meter reflects real combat.
+function dbgStressSpawn(){
+  if(G.state!=='play') return;
+  togglePerf(true);
+  const cx=clamp(G.cam.x+(innerWidth-uiSidebar())/2,120,WW-120), cy=clamp(G.cam.y+innerHeight/2,120,WH-120);
+  const groundDefs=o=>facOf(o).units.filter(u=>u.w&&!u.harv&&!u.builder&&!u.air&&!u.suicide);
+  const spawnArmy=(owner,ox,tx)=>{
+    const defs=groundDefs(owner); if(!defs.length) return;
+    for(let i=0;i<150;i++){ const def=defs[i%defs.length];
+      const sp=clearWorldSpawn(ox+rand(-90,90),cy+rand(-140,140));
+      const u=createUnit(owner,def,sp.x,sp.y);
+      u.order={t:'amove',x:tx,y:cy}; u.ax=u.x; u.ay=u.y; setMove(u,tx,cy);
+    }
+  };
+  spawnArmy(0,cx-260,cx+40);
+  spawnArmy(1,cx+260,cx-40);
+  sfx('click');
 }
 (function initMenu(){
   const wrap=$('facCards');
@@ -2728,18 +3127,34 @@ function initDebug(){
   });
   pickRow('data-d',v=>chosenDiff=v); pickRow('data-m',v=>chosenMap=v); pickRow('data-p',v=>chosenPos=v);
   $('selInfo').addEventListener('click',ev=>{
+    const qb=ev.target.closest('.qBtn');   // WS-6.3 cancel a queued production item
+    if(qb){ const e=G.sel[0]; if(e&&e.kind==='building') cancelQueueItem(e,+qb.dataset.qidx); return; }
     const ab=ev.target.closest('.actBtn');
     if(ab){ const e=G.sel[0]; if(e){ if(ab.dataset.act==='unload') unloadTransport(e); else if(ab.dataset.act==='eject') ejectGarrison(e); } updateHud(); return; }
     const b=ev.target.closest('.perkBtn'); if(b&&!b.disabled){ buyPerk(0,b.dataset.perk); updateHud(); } });
   initDebug();
   $('credit-bg').onclick=()=>{ easterEggActivated=true; $('credit-bg').classList.add('active'); };
   $('btnStart').onclick=()=>{ if(chosenFac){ if(easterEggActivated) $('btnDbg').classList.add('debug-visible'); audioInit(); startGame(chosenFac,chosenDiff,chosenMap,chosenPos); } };
-  $('btnRestart').onclick=()=>location.reload();
+  // WS-6.2 Continue-from-save on the start screen
+  { const cb=$('btnContinue'); if(cb){ if(hasSave()) cb.classList.remove('hidden'); cb.onclick=()=>{ audioInit(); doLoadGame(); }; } }
+  $('btnRestart').onclick=()=>{ $('endScreen').classList.add('hidden'); if(G.lastSetup) restartMatch(); else location.reload(); };
   $('btnMute').onclick=toggleMute;
   { const vs=$('volSlider'); if(vs){ vs.value=AUDIO.vol; vs.oninput=()=>{ audioInit(); setSfxVol(+vs.value); }; }
     if(muted) $('btnMute').textContent='🔇'; }
   $('swBtn').onclick=()=>{ if(G.state!=='play') return; swTargeting=!swTargeting; canvas.style.cursor=swTargeting?'crosshair':''; updateSwBtn(); };
-  $('btnPause').onclick=()=>{ G.paused=!G.paused; $('btnPause').textContent=G.paused?'▶':'⏸'; };
+  $('btnPause').onclick=()=>togglePauseMenu();
+  $('btnIdle').onclick=()=>cycleIdleWorker();   // WS-6.3 idle-worker cycle
+  // WS-6.1 pause-menu wiring
+  $('pResume').onclick=()=>{ closePauseMenu(); sfx('click'); };
+  $('pRestart').onclick=()=>{ closePauseMenu(); restartMatch(); sfx('click'); };
+  $('pQuit').onclick=()=>{ quitToMenu(); sfx('click'); };
+  $('pVol').oninput=()=>{ audioInit(); setSfxVol(+$('pVol').value); const vs=$('volSlider'); if(vs) vs.value=AUDIO.vol; };
+  $('pMute').onchange=()=>{ if($('pMute').checked!==muted) toggleMute(); };
+  $('pAnnouncer').onchange=()=>{ AUDIO.announcer=$('pAnnouncer').checked; saveAudio();
+    const ab=$('dbgAnnouncer'); if(ab){ ab.classList.toggle('on',AUDIO.announcer); ab.textContent='Announcer: '+(AUDIO.announcer?'On':'Off'); }
+    if(AUDIO.announcer) announce('Announcer online'); };
+  $('pSave').onclick=()=>doSaveGame();
+  $('pLoad').onclick=()=>doLoadGame();
   $('btnHelp').onclick=()=>$('helpBox').classList.toggle('hidden');
   // mobile / touch wiring
   $('btnPanel').onclick=()=>{ setDrawer(!$('sidebar').classList.contains('open')); sfx('click'); };

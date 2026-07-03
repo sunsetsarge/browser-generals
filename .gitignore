@@ -11,3 +11,6 @@ desktop.ini
 # generated hosting copies (deploy.ps1 stages these from assets/)
 public/assets/
 assets/_qc_*.png
+
+# sprite regen staging (P5 work-in-progress)
+assets/_regen/
