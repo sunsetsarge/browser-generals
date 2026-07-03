@@ -1,6 +1,6 @@
 {
-  "name": "Browser Generals",
-  "short_name": "Generals",
+  "name": "Iron Sunset",
+  "short_name": "Iron Sunset",
   "description": "A browser-based real-time strategy game — command three factions across 31 units with fog of war and skirmish AI.",
   "start_url": "./index.html",
   "scope": "./",

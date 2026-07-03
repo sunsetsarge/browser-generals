@@ -8,11 +8,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#161a10">
 <link rel="manifest" href="manifest.json">
-<meta name="apple-mobile-web-app-title" content="Generals">
+<meta name="apple-mobile-web-app-title" content="Iron Sunset">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<title>Browser Generals — Zero Hour Tribute</title>
+<title>IRON SUNSET — Browser RTS</title>
 <style>
 :root{--panel:rgba(18,21,14,.92);--border:#4a5238;--gold:#e8c060;--text:#d8dcc8;--green:#7ec850;--red:#e05545;}
 *{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
@@ -195,8 +195,8 @@ body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-are
 </div>
 
 <div id="startScreen" class="ov">
-  <h1>BROWSER GENERALS</h1>
-  <div class="sub">A fan-made browser tribute to Command &amp; Conquer: Generals — Zero Hour</div>
+  <h1>IRON SUNSET</h1>
+  <div class="sub">Fast single-file skirmish RTS — by SunsetSarge</div>
   <div class="cards" id="facCards"></div>
   <div class="diffRow">Difficulty:
     <button data-d="easy">Easy</button>
@@ -362,7 +362,7 @@ function sfx(kind,x,y,opt){
   try{ spec(t,g,opt&&opt.f,opt&&opt.up); }catch(e){}
 }
 setInterval(()=>{sfxBudget=10;},120);
-/* ---- optional EVA-style announcer (OFF by default) ---- */
+/* ---- optional OVERSEER announcer (OFF by default) ---- */
 let _annCd=0;
 function announce(text){
   if(!AUDIO.announcer||muted) return;
@@ -410,93 +410,93 @@ const DMG={
 /* building: k,n(name),i(icon),cost,t(build sec),hp,size(tiles),pow(+supply/-drain),req,trains,income,w(weapon)
    unit: k,n,i,cls(draw class),cost,t,hp,sp(speed),ar(armor),r(radius),sight,src(producer tag),w,harv,suicide,air */
 const FACTIONS={
-USA:{key:'USA',name:'USA',color:'#4f8fe0',dark:'#23446e',
+USA:{key:'USA',name:'Meridian Coalition',color:'#4f8fe0',dark:'#23446e',
  desc:'Quality over quantity. + Veteran Edge: kills count ×1.5 toward rank and idle units self-repair. − Fragile logistics: priciest roster, and low power cripples production hardest (×0.35).',
  tag:'+ Veterancy & self-repair · − Priciest, power-fragile',
  buildings:[
-  {k:'hq',n:'Command Center',i:'🏛️',cost:2000,t:30,hp:2500,size:3,pow:5},
-  {k:'power',n:'Cold Fusion Reactor',i:'⚡',cost:600,t:8,hp:800,size:2,pow:10},
-  {k:'supply',n:'Supply Center',i:'📦',cost:1200,t:12,hp:1200,size:2,pow:-1,trains:'supply'},
+  {k:'hq',n:'Headquarters',i:'🏛️',cost:2000,t:30,hp:2500,size:3,pow:5},
+  {k:'power',n:'Fusion Plant',i:'⚡',cost:600,t:8,hp:800,size:2,pow:10},
+  {k:'supply',n:'Supply Depot',i:'📦',cost:1200,t:12,hp:1200,size:2,pow:-1,trains:'supply'},
   {k:'barracks',n:'Barracks',i:'🪖',cost:500,t:8,hp:1000,size:2,pow:-1,trains:'barracks'},
-  {k:'training',n:'War College',i:'🎓',cost:800,t:11,hp:900,size:2,pow:-1,req:'barracks'},
-  {k:'factory',n:'War Factory',i:'🏭',cost:1500,t:15,hp:1500,size:3,pow:-2,req:'barracks',trains:'factory'},
+  {k:'training',n:'Officer Academy',i:'🎓',cost:800,t:11,hp:900,size:2,pow:-1,req:'barracks'},
+  {k:'factory',n:'Assembly Plant',i:'🏭',cost:1500,t:15,hp:1500,size:3,pow:-2,req:'barracks',trains:'factory'},
   {k:'air',n:'Airfield',i:'🛩️',cost:1200,t:14,hp:1100,size:3,pow:-2,req:'factory',trains:'air'},
-  {k:'def',n:'Patriot Battery',i:'🗼',cost:900,t:10,hp:700,size:1,pow:-1,req:'barracks',w:{type:'rocket',dmg:45,rng:280,cd:1.5,aa:true,sp:360}},
-  {k:'firebase',n:'Fire Base',i:'🏰',cost:900,t:11,hp:1500,size:2,pow:-1,req:'barracks',w:{type:'bullet',dmg:14,rng:300,cd:.12}},
-  {k:'strategy',n:'Strategy Center',i:'🎖️',cost:1200,t:14,hp:1600,size:3,pow:-1,req:'factory',income:3},
-  {k:'particle',n:'Particle Cannon',i:'🛰️',cost:5000,t:30,hp:1000,size:3,pow:-5,req:'strategy',super:{cd:95,dmg:340,aoe:120,label:'PARTICLE CANNON'}},
+  {k:'def',n:'Archer Battery',i:'🗼',cost:900,t:10,hp:700,size:1,pow:-1,req:'barracks',w:{type:'rocket',dmg:45,rng:280,cd:1.5,aa:true,sp:360}},
+  {k:'firebase',n:'Firebase',i:'🏰',cost:900,t:11,hp:1500,size:2,pow:-1,req:'barracks',w:{type:'bullet',dmg:14,rng:300,cd:.12}},
+  {k:'strategy',n:'Command Uplink',i:'🎖️',cost:1200,t:14,hp:1600,size:3,pow:-1,req:'factory',income:3},
+  {k:'particle',n:'Helios Cannon',i:'🛰️',cost:5000,t:30,hp:1000,size:3,pow:-5,req:'strategy',super:{cd:95,dmg:340,aoe:120,label:'HELIOS CANNON'}},
  ],
  units:[
-  {k:'ranger',n:'Ranger',i:'🔫',cls:'inf',cost:200,t:4,hp:120,sp:60,ar:'inf',r:8,sight:220,src:'barracks',w:{type:'bullet',dmg:10,rng:140,cd:.5}},
-  {k:'missile',n:'Missile Defender',i:'🚀',cls:'inf',cost:300,t:5,hp:120,sp:55,ar:'inf',r:8,sight:230,src:'barracks',w:{type:'rocket',dmg:40,rng:185,cd:1.8,aa:true,sp:320}},
-  {k:'sniper',n:'Pathfinder',i:'🎯',cls:'inf',cost:600,t:8,hp:100,sp:55,ar:'inf',r:8,sight:580,src:'barracks',w:{type:'sniper',dmg:120,rng:560,cd:2.6}},
-  {k:'humvee',n:'Humvee',i:'🚙',cls:'truck',cost:700,t:8,hp:260,sp:135,ar:'light',r:13,sight:240,src:'factory',w:{type:'bullet',dmg:12,rng:150,cd:.3}},
-  {k:'crusader',n:'Crusader Tank',i:'🛡️',cls:'tank',cost:900,t:10,hp:500,sp:85,ar:'heavy',r:14,sight:230,src:'factory',w:{type:'cannon',dmg:60,rng:175,cd:1.6,sp:420}},
-  {k:'paladin',n:'Paladin Tank',i:'⚔️',cls:'tank',cost:1100,t:12,hp:680,sp:65,ar:'heavy',r:15,sight:230,src:'factory',w:{type:'cannon',dmg:78,rng:185,cd:1.8,sp:420}},
-  {k:'tomahawk',n:'Tomahawk Launcher',i:'☄️',cls:'art',cost:1200,t:14,hp:200,sp:55,ar:'light',r:14,sight:360,src:'factory',w:{type:'rocket',dmg:110,rng:340,cd:4,aoe:55,sp:180}},
-  {k:'raptor',n:'F-22 Raptor',i:'✈️',cls:'jet',cost:1400,t:14,hp:240,sp:190,ar:'air',r:12,sight:280,src:'air',air:true,w:{type:'rocket',dmg:90,rng:190,cd:2.2,aa:true,sp:400}},
-  {k:'comanche',n:'Comanche',i:'🚁',cls:'heli',cost:1500,t:15,hp:320,sp:140,ar:'air',r:12,sight:260,src:'air',air:true,w:{type:'rocket',dmg:26,rng:180,cd:.5,aa:true,sp:340}},
+  {k:'ranger',n:'Trooper',i:'🔫',cls:'inf',cost:200,t:4,hp:120,sp:60,ar:'inf',r:8,sight:220,src:'barracks',w:{type:'bullet',dmg:10,rng:140,cd:.5}},
+  {k:'missile',n:'Lancer',i:'🚀',cls:'inf',cost:300,t:5,hp:120,sp:55,ar:'inf',r:8,sight:230,src:'barracks',w:{type:'rocket',dmg:40,rng:185,cd:1.8,aa:true,sp:320}},
+  {k:'sniper',n:'Longsight',i:'🎯',cls:'inf',cost:600,t:8,hp:100,sp:55,ar:'inf',r:8,sight:580,src:'barracks',w:{type:'sniper',dmg:120,rng:560,cd:2.6}},
+  {k:'humvee',n:'Outrider',i:'🚙',cls:'truck',cost:700,t:8,hp:260,sp:135,ar:'light',r:13,sight:240,src:'factory',w:{type:'bullet',dmg:12,rng:150,cd:.3}},
+  {k:'crusader',n:'Bastion Tank',i:'🛡️',cls:'tank',cost:900,t:10,hp:500,sp:85,ar:'heavy',r:14,sight:230,src:'factory',w:{type:'cannon',dmg:60,rng:175,cd:1.6,sp:420}},
+  {k:'paladin',n:'Warden Tank',i:'⚔️',cls:'tank',cost:1100,t:12,hp:680,sp:65,ar:'heavy',r:15,sight:230,src:'factory',w:{type:'cannon',dmg:78,rng:185,cd:1.8,sp:420}},
+  {k:'tomahawk',n:'Stormcaller Launcher',i:'☄️',cls:'art',cost:1200,t:14,hp:200,sp:55,ar:'light',r:14,sight:360,src:'factory',w:{type:'rocket',dmg:110,rng:340,cd:4,aoe:55,sp:180}},
+  {k:'raptor',n:'Peregrine Interceptor',i:'✈️',cls:'jet',cost:1400,t:14,hp:240,sp:190,ar:'air',r:12,sight:280,src:'air',air:true,w:{type:'rocket',dmg:90,rng:190,cd:2.2,aa:true,sp:400}},
+  {k:'comanche',n:'Kestrel Gunship',i:'🚁',cls:'heli',cost:1500,t:15,hp:320,sp:140,ar:'air',r:12,sight:260,src:'air',air:true,w:{type:'rocket',dmg:26,rng:180,cd:.5,aa:true,sp:340}},
   {k:'burton',n:'Colonel Cully',i:'🔪',cls:'inf',cost:1500,t:14,hp:300,sp:92,ar:'inf',r:8,sight:300,src:'barracks',hero:true,w:{type:'sniper',dmg:90,rng:200,cd:.9}},
-  {k:'avenger',n:'Avenger',i:'🔆',cls:'tank',cost:1500,t:14,hp:420,sp:80,ar:'light',r:14,sight:300,src:'factory',w:{type:'rocket',dmg:30,rng:260,cd:.4,aa:true,sp:520}},
-  {k:'aurora',n:'Aurora Bomber',i:'🛫',cls:'jet',cost:1800,t:16,hp:200,sp:240,ar:'air',r:13,sight:300,src:'air',air:true,w:{type:'blast',dmg:130,rng:170,cd:3.2,aoe:60,sp:520}},
-  {k:'chinook',n:'Chinook (Harvester)',i:'📦',cls:'heli',cost:600,t:10,hp:300,sp:120,ar:'air',r:13,sight:200,src:'supply',air:true,harv:{cap:300}},
+  {k:'avenger',n:'Sunlance',i:'🔆',cls:'tank',cost:1500,t:14,hp:420,sp:80,ar:'light',r:14,sight:300,src:'factory',w:{type:'rocket',dmg:30,rng:260,cd:.4,aa:true,sp:520}},
+  {k:'aurora',n:'Dawnstrike Bomber',i:'🛫',cls:'jet',cost:1800,t:16,hp:200,sp:240,ar:'air',r:13,sight:300,src:'air',air:true,w:{type:'blast',dmg:130,rng:170,cd:3.2,aoe:60,sp:520}},
+  {k:'chinook',n:'Skyhook Hauler (Harvester)',i:'📦',cls:'heli',cost:600,t:10,hp:300,sp:120,ar:'air',r:13,sight:200,src:'supply',air:true,harv:{cap:300}},
  ]},
-CHINA:{key:'CHINA',name:'China',color:'#e0524f',dark:'#6e2423',
- desc:'Mass and momentum. + Horde Bonus: combat units massed 3+ together gain +25% damage & +10% speed. − Slow, volatile: build times ×1.15 and Nuclear Reactors explode when destroyed.',
+CHINA:{key:'CHINA',name:'Ironclad Pact',color:'#e0524f',dark:'#6e2423',
+ desc:'Mass and momentum. + Horde Bonus: combat units massed 3+ together gain +25% damage & +10% speed. − Slow, volatile: build times ×1.15 and Fission Reactors explode when destroyed.',
  tag:'+ Horde bonus when massed · − Slow builds, exploding reactors',
  buildings:[
-  {k:'hq',n:'Command Center',i:'🏯',cost:2000,t:30,hp:2600,size:3,pow:5},
-  {k:'power',n:'Nuclear Reactor',i:'☢️',cost:600,t:8,hp:800,size:2,pow:10},
-  {k:'supply',n:'Supply Center',i:'📦',cost:1200,t:12,hp:1200,size:2,pow:-1,trains:'supply'},
+  {k:'hq',n:'Headquarters',i:'🏯',cost:2000,t:30,hp:2600,size:3,pow:5},
+  {k:'power',n:'Fission Reactor',i:'☢️',cost:600,t:8,hp:800,size:2,pow:10},
+  {k:'supply',n:'Supply Depot',i:'📦',cost:1200,t:12,hp:1200,size:2,pow:-1,trains:'supply'},
   {k:'barracks',n:'Barracks',i:'🪖',cost:450,t:8,hp:1100,size:2,pow:-1,trains:'barracks'},
-  {k:'training',n:'Training Camp',i:'🎓',cost:750,t:11,hp:1000,size:2,pow:-1,req:'barracks'},
-  {k:'factory',n:'War Factory',i:'🏭',cost:1400,t:15,hp:1600,size:3,pow:-2,req:'barracks',trains:'factory'},
+  {k:'training',n:'Training Grounds',i:'🎓',cost:750,t:11,hp:1000,size:2,pow:-1,req:'barracks'},
+  {k:'factory',n:'Assembly Plant',i:'🏭',cost:1400,t:15,hp:1600,size:3,pow:-2,req:'barracks',trains:'factory'},
   {k:'air',n:'Airfield',i:'🛩️',cost:1200,t:14,hp:1100,size:3,pow:-2,req:'factory',trains:'air'},
-  {k:'def',n:'Gattling Cannon',i:'🗼',cost:800,t:10,hp:900,size:1,pow:-1,req:'barracks',w:{type:'bullet',dmg:9,rng:260,cd:.1,aa:true}},
+  {k:'def',n:'Shredder Turret',i:'🗼',cost:800,t:10,hp:900,size:1,pow:-1,req:'barracks',w:{type:'bullet',dmg:9,rng:260,cd:.1,aa:true}},
   {k:'bunker',n:'Bunker',i:'🏯',cost:700,t:9,hp:1400,size:1,pow:-1,req:'barracks',w:{type:'bullet',dmg:11,rng:270,cd:.14}},
-  {k:'propaganda',n:'Propaganda Center',i:'📡',cost:1200,t:14,hp:1600,size:3,pow:-2,req:'factory',income:3},
-  {k:'nuke',n:'Nuclear Missile',i:'☢️',cost:5000,t:32,hp:1000,size:3,pow:-6,req:'propaganda',super:{cd:100,dmg:380,aoe:135,label:'NUCLEAR MISSILE'}},
+  {k:'propaganda',n:'Broadcast Center',i:'📡',cost:1200,t:14,hp:1600,size:3,pow:-2,req:'factory',income:3},
+  {k:'nuke',n:'Ballistic Missile Silo',i:'☢️',cost:5000,t:32,hp:1000,size:3,pow:-6,req:'propaganda',super:{cd:100,dmg:380,aoe:135,label:'BALLISTIC MISSILE'}},
  ],
  units:[
-  {k:'redguard',n:'Red Guard',i:'🔫',cls:'inf',cost:150,t:3.5,hp:140,sp:55,ar:'inf',r:8,sight:210,src:'barracks',count:2,w:{type:'bullet',dmg:9,rng:130,cd:.5}},
-  {k:'hunter',n:'Tank Hunter',i:'🚀',cls:'inf',cost:300,t:5,hp:130,sp:55,ar:'inf',r:8,sight:220,src:'barracks',w:{type:'rocket',dmg:38,rng:175,cd:1.7,aa:true,sp:320}},
-  {k:'dragon',n:'Dragon Tank',i:'🔥',cls:'tank',cost:800,t:9,hp:400,sp:75,ar:'light',r:14,sight:200,src:'factory',w:{type:'flame',dmg:13,rng:130,cd:.22,aoe:20}},
-  {k:'gattling',n:'Gattling Tank',i:'💥',cls:'tank',cost:800,t:9,hp:380,sp:88,ar:'light',r:14,sight:240,src:'factory',w:{type:'bullet',dmg:8,rng:170,cd:.12,aa:true}},
-  {k:'battlemaster',n:'Battlemaster',i:'🛡️',cls:'tank',cost:800,t:9,hp:470,sp:78,ar:'heavy',r:14,sight:220,src:'factory',w:{type:'cannon',dmg:55,rng:170,cd:1.5,sp:420}},
-  {k:'overlord',n:'Overlord Tank',i:'👹',cls:'tank',cost:1800,t:18,hp:1200,sp:45,ar:'heavy',r:18,sight:220,src:'factory',scale:1.35,w:{type:'cannon',dmg:75,rng:180,cd:1.1,sp:420}},
-  {k:'inferno',n:'Inferno Cannon',i:'☄️',cls:'art',cost:1100,t:13,hp:220,sp:55,ar:'light',r:14,sight:350,src:'factory',w:{type:'flame',dmg:95,rng:330,cd:3.6,aoe:50,sp:200}},
-  {k:'mig',n:'MiG Fighter',i:'✈️',cls:'jet',cost:1300,t:13,hp:220,sp:200,ar:'air',r:12,sight:280,src:'air',air:true,w:{type:'rocket',dmg:80,rng:180,cd:2,aa:true,sp:400}},
-  {k:'helix',n:'Helix',i:'🚁',cls:'heli',cost:1700,t:16,hp:500,sp:105,ar:'air',r:14,sight:260,src:'air',air:true,w:{type:'bullet',dmg:16,rng:170,cd:.18,aa:true}},
+  {k:'redguard',n:'Iron Guard',i:'🔫',cls:'inf',cost:150,t:3.5,hp:140,sp:55,ar:'inf',r:8,sight:210,src:'barracks',count:2,w:{type:'bullet',dmg:9,rng:130,cd:.5}},
+  {k:'hunter',n:'Tankbreaker',i:'🚀',cls:'inf',cost:300,t:5,hp:130,sp:55,ar:'inf',r:8,sight:220,src:'barracks',w:{type:'rocket',dmg:38,rng:175,cd:1.7,aa:true,sp:320}},
+  {k:'dragon',n:'Salamander Tank',i:'🔥',cls:'tank',cost:800,t:9,hp:400,sp:75,ar:'light',r:14,sight:200,src:'factory',w:{type:'flame',dmg:13,rng:130,cd:.22,aoe:20}},
+  {k:'gattling',n:'Shredder Tank',i:'💥',cls:'tank',cost:800,t:9,hp:380,sp:88,ar:'light',r:14,sight:240,src:'factory',w:{type:'bullet',dmg:8,rng:170,cd:.12,aa:true}},
+  {k:'battlemaster',n:'Mastiff Tank',i:'🛡️',cls:'tank',cost:800,t:9,hp:470,sp:78,ar:'heavy',r:14,sight:220,src:'factory',w:{type:'cannon',dmg:55,rng:170,cd:1.5,sp:420}},
+  {k:'overlord',n:'Colossus Tank',i:'👹',cls:'tank',cost:1800,t:18,hp:1200,sp:45,ar:'heavy',r:18,sight:220,src:'factory',scale:1.35,w:{type:'cannon',dmg:75,rng:180,cd:1.1,sp:420}},
+  {k:'inferno',n:'Pyre Cannon',i:'☄️',cls:'art',cost:1100,t:13,hp:220,sp:55,ar:'light',r:14,sight:350,src:'factory',w:{type:'flame',dmg:95,rng:330,cd:3.6,aoe:50,sp:200}},
+  {k:'mig',n:'Firebird Fighter',i:'✈️',cls:'jet',cost:1300,t:13,hp:220,sp:200,ar:'air',r:12,sight:280,src:'air',air:true,w:{type:'rocket',dmg:80,rng:180,cd:2,aa:true,sp:400}},
+  {k:'helix',n:'Dragonfly Gunship',i:'🚁',cls:'heli',cost:1700,t:16,hp:500,sp:105,ar:'air',r:14,sight:260,src:'air',air:true,w:{type:'bullet',dmg:16,rng:170,cd:.18,aa:true}},
   {k:'lotus',n:'Nightshade',i:'🥀',cls:'inf',cost:1500,t:14,hp:260,sp:85,ar:'inf',r:8,sight:300,src:'barracks',hero:true,w:{type:'sniper',dmg:70,rng:190,cd:1.0}},
-  {k:'nukecannon',n:'Nuke Cannon',i:'☢️',cls:'art',cost:1600,t:16,hp:260,sp:48,ar:'light',r:15,sight:380,src:'factory',w:{type:'blast',dmg:120,rng:360,cd:4.2,aoe:70,sp:200}},
+  {k:'nukecannon',n:'Meltdown Cannon',i:'☢️',cls:'art',cost:1600,t:16,hp:260,sp:48,ar:'light',r:15,sight:380,src:'factory',w:{type:'blast',dmg:120,rng:360,cd:4.2,aoe:70,sp:200}},
   {k:'truck',n:'Supply Truck',i:'📦',cls:'truck',cost:400,t:8,hp:260,sp:95,ar:'light',r:13,sight:180,src:'supply',harv:{cap:300}},
  ]},
-GLA:{key:'GLA',name:'GLA',color:'#b5a642',dark:'#5a531f',
+GLA:{key:'GLA',name:'Jackal Syndicate',color:'#b5a642',dark:'#5a531f',
  desc:'Scavenge and swarm. + Salvage: every enemy your units kill pays 15% of its cost as scrap (needs no power, build times ×0.90). − Fragile & grounded: unit HP ×0.92, no aircraft, no self-repair.',
  tag:'+ Salvage economy, no power · − Weak HP, no aircraft',
  buildings:[
-  {k:'hq',n:'Command Center',i:'⛺',cost:1800,t:28,hp:2200,size:3,pow:0},
-  {k:'supply',n:'Supply Stash',i:'📦',cost:1000,t:11,hp:1100,size:2,pow:0,trains:'supply'},
+  {k:'hq',n:'Headquarters',i:'⛺',cost:1800,t:28,hp:2200,size:3,pow:0},
+  {k:'supply',n:'Scrap Yard',i:'📦',cost:1000,t:11,hp:1100,size:2,pow:0,trains:'supply'},
   {k:'barracks',n:'Barracks',i:'🪖',cost:400,t:7,hp:900,size:2,pow:0,trains:'barracks'},
-  {k:'training',n:'Training Camp',i:'🎓',cost:700,t:10,hp:900,size:2,pow:0,req:'barracks'},
-  {k:'factory',n:'Arms Dealer',i:'🏭',cost:1400,t:14,hp:1400,size:3,pow:0,req:'barracks',trains:'factory'},
+  {k:'training',n:'Training Grounds',i:'🎓',cost:700,t:10,hp:900,size:2,pow:0,req:'barracks'},
+  {k:'factory',n:'Chop Shop',i:'🏭',cost:1400,t:14,hp:1400,size:3,pow:0,req:'barracks',trains:'factory'},
   {k:'market',n:'Black Market',i:'🛒',cost:1500,t:14,hp:900,size:2,pow:0,req:'factory',income:8},
-  {k:'def',n:'Stinger Site',i:'🗼',cost:700,t:9,hp:600,size:1,pow:0,req:'barracks',w:{type:'rocket',dmg:34,rng:260,cd:1.1,aa:true,sp:340}},
+  {k:'def',n:'Thorn Site',i:'🗼',cost:700,t:9,hp:600,size:1,pow:0,req:'barracks',w:{type:'rocket',dmg:34,rng:260,cd:1.1,aa:true,sp:340}},
   {k:'tunnel',n:'Tunnel Network',i:'🕳️',cost:600,t:8,hp:1200,size:2,pow:0,req:'barracks',w:{type:'bullet',dmg:10,rng:250,cd:.16}},
   {k:'palace',n:'Palace',i:'🕌',cost:2000,t:18,hp:2400,size:3,pow:0,req:'factory',w:{type:'cannon',dmg:40,rng:240,cd:1.4,sp:420}},
-  {k:'scudstorm',n:'SCUD Storm',i:'🌪️',cost:4800,t:30,hp:1000,size:3,pow:0,req:'palace',super:{cd:90,dmg:300,aoe:150,label:'SCUD STORM'}},
+  {k:'scudstorm',n:'Rocket Tempest',i:'🌪️',cost:4800,t:30,hp:1000,size:3,pow:0,req:'palace',super:{cd:90,dmg:300,aoe:150,label:'ROCKET TEMPEST'}},
  ],
  units:[
-  {k:'rebel',n:'Rebel',i:'🔫',cls:'inf',cost:120,t:3,hp:110,sp:60,ar:'inf',r:8,sight:210,src:'barracks',w:{type:'bullet',dmg:9,rng:130,cd:.5}},
-  {k:'rpg',n:'RPG Trooper',i:'🚀',cls:'inf',cost:280,t:5,hp:110,sp:55,ar:'inf',r:8,sight:220,src:'barracks',w:{type:'rocket',dmg:36,rng:170,cd:1.7,aa:true,sp:320}},
-  {k:'terrorist',n:'Terrorist',i:'💣',cls:'inf',cost:250,t:4,hp:90,sp:80,ar:'inf',r:8,sight:200,src:'barracks',suicide:{dmg:260,aoe:65}},
+  {k:'rebel',n:'Raider',i:'🔫',cls:'inf',cost:120,t:3,hp:110,sp:60,ar:'inf',r:8,sight:210,src:'barracks',w:{type:'bullet',dmg:9,rng:130,cd:.5}},
+  {k:'rpg',n:'Rocket Militia',i:'🚀',cls:'inf',cost:280,t:5,hp:110,sp:55,ar:'inf',r:8,sight:220,src:'barracks',w:{type:'rocket',dmg:36,rng:170,cd:1.7,aa:true,sp:320}},
+  {k:'terrorist',n:'Fanatic',i:'💣',cls:'inf',cost:250,t:4,hp:90,sp:80,ar:'inf',r:8,sight:200,src:'barracks',suicide:{dmg:260,aoe:65}},
   {k:'technical',n:'Technical',i:'🛻',cls:'truck',cost:500,t:6,hp:220,sp:145,ar:'light',r:13,sight:230,src:'factory',w:{type:'bullet',dmg:10,rng:150,cd:.28}},
-  {k:'quad',n:'Quad Cannon',i:'💥',cls:'truck',cost:700,t:8,hp:300,sp:95,ar:'light',r:13,sight:240,src:'factory',w:{type:'bullet',dmg:9,rng:170,cd:.12,aa:true}},
-  {k:'scorpion',n:'Scorpion Tank',i:'🦂',cls:'tank',cost:700,t:8,hp:400,sp:88,ar:'heavy',r:14,sight:220,src:'factory',w:{type:'cannon',dmg:48,rng:160,cd:1.5,sp:420}},
-  {k:'marauder',n:'Marauder Tank',i:'🛡️',cls:'tank',cost:900,t:10,hp:580,sp:70,ar:'heavy',r:15,sight:220,src:'factory',w:{type:'cannon',dmg:62,rng:170,cd:1.6,sp:420}},
+  {k:'quad',n:'Quadgun',i:'💥',cls:'truck',cost:700,t:8,hp:300,sp:95,ar:'light',r:13,sight:240,src:'factory',w:{type:'bullet',dmg:9,rng:170,cd:.12,aa:true}},
+  {k:'scorpion',n:'Sandviper Tank',i:'🦂',cls:'tank',cost:700,t:8,hp:400,sp:88,ar:'heavy',r:14,sight:220,src:'factory',w:{type:'cannon',dmg:48,rng:160,cd:1.5,sp:420}},
+  {k:'marauder',n:'Ravager Tank',i:'🛡️',cls:'tank',cost:900,t:10,hp:580,sp:70,ar:'heavy',r:15,sight:220,src:'factory',w:{type:'cannon',dmg:62,rng:170,cd:1.6,sp:420}},
   {k:'buggy',n:'Rocket Buggy',i:'🏎️',cls:'truck',cost:900,t:10,hp:180,sp:150,ar:'light',r:12,sight:300,src:'factory',w:{type:'rocket',dmg:22,rng:300,cd:.55,sp:330}},
-  {k:'toxin',n:'Toxin Tractor',i:'☣️',cls:'truck',cost:600,t:8,hp:340,sp:82,ar:'light',r:13,sight:200,src:'factory',w:{type:'flame',dmg:10,rng:125,cd:.25,aoe:24}},
-  {k:'scud',n:'SCUD Launcher',i:'☄️',cls:'art',cost:1300,t:15,hp:250,sp:50,ar:'light',r:15,sight:370,src:'factory',w:{type:'blast',dmg:150,rng:360,cd:5,aoe:75,sp:170}},
+  {k:'toxin',n:'Venom Sprayer',i:'☣️',cls:'truck',cost:600,t:8,hp:340,sp:82,ar:'light',r:13,sight:200,src:'factory',w:{type:'flame',dmg:10,rng:125,cd:.25,aoe:24}},
+  {k:'scud',n:'Hellrain Launcher',i:'☄️',cls:'art',cost:1300,t:15,hp:250,sp:50,ar:'light',r:15,sight:370,src:'factory',w:{type:'blast',dmg:150,rng:360,cd:5,aoe:75,sp:170}},
   {k:'jarmen',n:'Deadeye',i:'🎯',cls:'inf',cost:1200,t:13,hp:220,sp:80,ar:'inf',r:8,sight:340,src:'barracks',hero:true,w:{type:'sniper',dmg:110,rng:300,cd:2.2}},
   {k:'bombtruck',n:'Bomb Truck',i:'💣',cls:'truck',cost:800,t:9,hp:260,sp:120,ar:'light',r:13,sight:200,src:'factory',suicide:{dmg:340,aoe:90}},
   {k:'cycle',n:'Combat Cycle',i:'🏍️',cls:'truck',cost:300,t:4,hp:140,sp:170,ar:'light',r:11,sight:240,src:'barracks',w:{type:'bullet',dmg:9,rng:140,cd:.4}},
@@ -508,17 +508,17 @@ GLA:{key:'GLA',name:'GLA',color:'#b5a642',dark:'#5a531f',
    Patched onto FACTIONS so the base roster above stays readable. */
 FACTIONS.USA.units.push({k:'bulldozer',n:'Bulldozer',i:'🚜',cls:'truck',cost:600,t:8,hp:400,sp:72,ar:'light',r:13,sight:190,src:'dozer',builder:true});
 FACTIONS.CHINA.units.push({k:'dozer',n:'Dozer',i:'🚜',cls:'truck',cost:600,t:8,hp:430,sp:68,ar:'light',r:13,sight:190,src:'dozer',builder:true});
-FACTIONS.USA.buildings.find(b=>b.k==='hq').trains='dozer';      // Command Center builds Bulldozers
-FACTIONS.CHINA.buildings.find(b=>b.k==='hq').trains='dozer';    // Command Center builds Dozers
+FACTIONS.USA.buildings.find(b=>b.k==='hq').trains='dozer';      // Headquarters builds Bulldozers
+FACTIONS.CHINA.buildings.find(b=>b.k==='hq').trains='dozer';    // Headquarters builds Dozers
 FACTIONS.GLA.units.find(u=>u.k==='worker').builder=true;        // GLA Worker harvests AND builds
 /* Walls: destructible, no weapon; placed by click-drag and built by a dozer/worker over time. */
 for(const _fk of Object.keys(FACTIONS)){
   FACTIONS[_fk].buildings.push({k:'wall',n:'Wall',i:'🧱',cost:60,t:2.2,hp:650,size:1,pow:0,wall:true});
 }
-/* Transports (keep harvesting on the Chinook; Helix gains a hold; GLA gets the Battle Bus). */
-(function(){ const ch=FACTIONS.USA.units.find(u=>u.k==='chinook'); if(ch){ ch.transport={cap:12}; ch.n='Chinook'; }
+/* Transports (keep harvesting on the Skyhook Hauler; Dragonfly gains a hold; Syndicate gets the War Wagon). */
+(function(){ const ch=FACTIONS.USA.units.find(u=>u.k==='chinook'); if(ch){ ch.transport={cap:12}; ch.n='Skyhook Hauler'; }
   const hx=FACTIONS.CHINA.units.find(u=>u.k==='helix'); if(hx){ hx.transport={cap:12}; }
-  FACTIONS.GLA.units.push({k:'battlebus',n:'Battle Bus',i:'🚌',cls:'truck',cost:800,t:9,hp:480,sp:120,ar:'light',r:14,sight:220,src:'factory',transport:{cap:12},w:{type:'bullet',dmg:8,rng:150,cd:.3}});
+  FACTIONS.GLA.units.push({k:'battlebus',n:'War Wagon',i:'🚌',cls:'truck',cost:800,t:9,hp:480,sp:120,ar:'light',r:14,sight:220,src:'factory',transport:{cap:12},w:{type:'bullet',dmg:8,rng:150,cd:.3}});
 })();
 /* Garrison: Fire Base becomes a big cannon; Bunker & Tunnel share the garrison logic. */
 (function(){ const fb=FACTIONS.USA.buildings.find(b=>b.k==='firebase');
@@ -2099,8 +2099,8 @@ function unitRole(def){
   else { const w=def.w;
     if(!w) r='scout';
     else if(w.type==='sniper') r='sniper';
-    else if(w.aoe&&(w.rng>=300||w.type==='blast')) r='arty';   // long-range/explosive splash = artillery (Tomahawk/SCUD/Inferno/Nuke Cannon/Aurora)
-    else if(w.type==='flame') r='flame';    // short-range flame keeps its identity (Dragon/Toxin)
+    else if(w.aoe&&(w.rng>=300||w.type==='blast')) r='arty';   // long-range/explosive splash = artillery (Stormcaller/Hellrain/Pyre/Meltdown/Dawnstrike)
+    else if(w.type==='flame') r='flame';    // short-range flame keeps its identity (Salamander/Venom)
     else if(w.type==='rocket') r='rocket';
     else if(w.type==='cannon') r='cannon';
     else if(w.type==='bullet') r=w.aa?'aa':'gun';
