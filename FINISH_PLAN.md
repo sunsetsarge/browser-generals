@@ -162,6 +162,28 @@ with PER-FRAME drift: schedule regeneration like WS-A2 (but 3/4 view vehicles ca
 use rotation-derivation — regenerate the bad frames via img2img off a good
 neighboring frame).
 
+### WS-A7 `[sonnet-ok]` — sprite payload quantization (measured 2026-07-07)
+Deployed sprite payload is **15MB / 444 files** — all precached by the service worker on
+first visit. PIL quantization test: `im.quantize(colors=128, method=FASTOCTREE)` +
+`optimize=True` shrinks bld_tunnel_2 316→59KB, bld_palace_0 233→50KB, ranger_0 21→4KB
+(**~80%**). Write `scripts/quantize_assets.py`: batch all `assets/*_[0-7].png` +
+`bld_*_[0-2].png` → `assets/_quant/`, build a before/after A/B montage of the 6 biggest
+for VISION review (banding on gradients is the risk — bump to 192 colors per-file if a
+sprite visibly bands), then replace originals (git is the backup), bump SW cache version.
+**Acceptance:** total deployed payload ≤4MB; A/B montage shows no visible degradation at
+game scale; game loads clean; live site serves the small files.
+
+### WS-A8 `[sonnet-ok]` — world-render polish (from 2026-07-07 screenshots)
+1. **Roads look like shadow rays:** carved-corridor roads render as straight dark
+   streaks radiating from the HQ (screenshot evidence). Fix in `renderTerrain`'s road
+   stamping: draw along the actual corridor polyline (not base-to-base straight lines),
+   clip road alpha under building footprints, and cap width ~14px with soft edges.
+2. **Blocky fog edges:** fog canvas is tile-resolution scaled up hard. Render fogCanvas
+   at tile res but draw it scaled with a 1-tile blur (`ctx.filter='blur(6px)'` on the
+   composite, or draw fog to a half-res canvas and let smoothing blur it).
+**Acceptance:** re-capture the §V in-game screenshot: roads read as roads (follow
+corridors, no HQ starburst), fog boundary is soft; fps unchanged.
+
 ---
 
 ## §3 Completion workstreams (after Track A, toward "done game")
@@ -169,8 +191,8 @@ neighboring frame).
 ### WS-B1 `[sonnet-ok]` — music + audio polish
 Procedural music keeps single-file: either (a) hand-rolled Web Audio 2-oscillator
 pad + bass loop with intensity tied to `ambBattle` level, or (b) embed ZzFXM
-(~1KB player, MIT — paste inline with attribution comment) + 2 short tracked loops
-(menu, battle). Add: per-faction ack pitch already exists; add volume ducking
+(**already downloaded to `vendor/zzfx.js` + `vendor/zzfxm.js`, MIT** — paste inline
+with attribution comment) + 2 short tracked loops (menu, battle). Add: per-faction ack pitch already exists; add volume ducking
 (alarms duck ambient by 50% for 2s). Acceptance: menu + gameplay music loops,
 mute/volume still master everything, file grows <40KB.
 
