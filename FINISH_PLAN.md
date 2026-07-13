@@ -80,6 +80,12 @@ chinook body = 170.
 **Acceptance:** running on a test frame produces 8 files; `verify_facing.py <key>`
 montage shows smooth 45° clockwise rotation with frame 0 East; all 12 infantry
 render within ±10% of each other's on-screen height in the §V size-lint.
+NOTE: per-frame size consistency must be checked by OPAQUE-PIXEL AREA (±5%), not
+bbox height — AABB height is not rotation-invariant for non-square content.
+**✅ DONE 2026-07-07.** Tool at `sarges-skills/skills/browser-game-builder/scripts/make_dirs.py`.
+Rotation sign −45°/step proven empirically (arrow test: frame 2 down, frame 6 up).
+Tested on ranger+worker @height 120: area variance 0.0%/0.3%, vision-verified montages
+show correct clockwise sweep incl. diagonals. Ready for WS-A2/A3 consumption.
 
 ### WS-A2 [ASSET-GEN] — regenerate 12 infantry as single canonical frames
 **Objective:** one clean East-facing overhead frame per infantry unit; then WS-A1
