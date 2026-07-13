@@ -2131,7 +2131,7 @@ function loadDirSprites(key,base,n,size){
     im.src=base+'_'+i+'.png'; set.img[i]=im; }
 }
 // register available unit sprites (8-direction frames in assets/<key>_0..7.png); missing -> vector fallback
-const UNIT_SPRITE_REG=[['ranger',30],['missile',30],['sniper',30],['burton',32],['redguard',30],['hunter',30],['lotus',30],['rebel',30],['rpg',30],['terrorist',30],['jarmen',32],['worker',30],   // top-down infantry (regenerated, correct facing)
+const UNIT_SPRITE_REG=[['ranger',45],['missile',45],['sniper',45],['burton',45],['redguard',45],['hunter',45],['lotus',45],['rebel',45],['rpg',45],['terrorist',45],['jarmen',45],['worker',45],   // rotation-derived infantry: content is ~120px centered in a 180px canvas (rotation headroom), so 45px box ≈ 30px on-screen soldier
  ['humvee',34],['crusader',38],['paladin',40],
  ['avenger',38],['tomahawk',38],['raptor',48],['aurora',50],['comanche',46],['chinook',46],
  // China
