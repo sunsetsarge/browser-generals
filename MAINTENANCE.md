@@ -94,6 +94,7 @@ your change worked.
 | Game won't load after edit | `node --check` won't parse HTML — extract the script or eyeball the last Edit; check first console error; `git diff` vs last commit. |
 | Save fails to load | Schema changed — bump save version `v` and fail closed (existing pattern in `saveMeta`). |
 | Live site stale after deploy | SW cache: bump the cache name in `sw.js` (`browser-generals-vN`), redeploy `-Force`, hard-reload. |
+| LOCALHOST shows old sprites after replacing assets | Browser heuristic HTTP cache (python server sends no Cache-Control) — the page's Image loads reuse stale files silently. Unregister SW + clear caches is NOT enough. Verify with cache-busted URLs (`assets/x_0.png?bust=...`) or restart the browser tab. Disk truth: hash-compare the file. Production is fine (sw.js revalidates with cache:'no-cache'). |
 | Files missing from folder | OneDrive sync loss: `git restore .` |
 | Firebase deploy skipped | mtime gate: rerun `deploy.ps1 -Force`. |
 | Push rejected | Phone-dispatched session pushed first: `git pull --rebase origin main`, review what came in, then push. |

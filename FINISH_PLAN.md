@@ -135,6 +135,14 @@ default:{rotors:[0]}}`).
 **Acceptance:** in the §V gallery, heli frames show NO baked blades; in a live spin
 test (spawn heli, order moves in a circle) the body rotates smoothly with no
 upside-down frame and exactly one set of spinning blades per hub.
+**✅ DONE 2026-07-08.** Two generation rounds: round 1 (init-img2img den 0.42) rejected
+by orchestrator vision review (flat mock-ups); round 2 with anatomy-rich inits + denoise
+sweep passed at den 0.50 (0.58+ regrows blades — SDXL prior). Deterministic post-fixes
+(comanche hub composite, chinook tail-artifact erase) in scratchpad postfix_a3.py.
+Engine: per-hub rotor overlay (chinook twin ±0.26×size, desynced; comanche single);
+registrations 46→69 (centered-content geometry). Verified in-engine: rotors track hubs
+across facings, no baked blades, zero console errors. LESSON: txt2img cannot make a
+blade-free helicopter (model prior); always init-control composition.
 
 ### WS-A4 `[sonnet-ok]` — engine animation fixes (do with/after A2/A3)
 1. **Remove the stick-leg overlay for sprite infantry:** in `drawUnit`'s sprite
