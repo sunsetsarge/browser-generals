@@ -157,6 +157,16 @@ blade-free helicopter (model prior); always init-control composition.
 4. Muzzle-flash offset, recoil, dust: unchanged (already correct).
 **Acceptance:** moving infantry show exactly ONE set of legs, visibly stepping;
 idle infantry are static; §V in-game sim frames still map E→0/N→6/W→4/S→2.
+**✅ DONE 2026-07-08.** SPEC CORRECTION: the two-slice waist shear (item 2) was written
+for 3/4-view sprites and is WRONG for true-overhead art (the image's lower half isn't
+"legs"). Implemented the overhead-honest gait instead: lateral sway ±1.1px
+perpendicular to travel + body wobble ±0.055rad at 2× step frequency, moving only.
+Stick-leg overlay removed from the sprite branch (kept for vector fallback). Chinook
+twin rotor landed in WS-A3. Verified: moving renders vary per phase, idle pixel-stable,
+no double-leg pixel signature, zero console errors.
+DEPLOY NOTE (feeds WS-B7): sw.js is cache-first INCLUDING index.html — every deploy
+that changes html/assets MUST bump the sw.js cache version or returning players stay
+stale. Manual bumps v2(A2) v3(A3) v4(A4) so far; automate in B7.
 
 ### WS-A5 `[sonnet-ok]` — automated art lints (regression-proofing)
 Add `scripts/sprite_lint.py` to the project:

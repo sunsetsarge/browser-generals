@@ -2236,12 +2236,20 @@ function drawUnit(c,u){
   /* infantry no longer bob/squash while moving — a single top-down sprite can't show a gait; motion reads from sliding */ // walk bob (vertical; legs swung below)
   const spr=SPRITES[u.def.k];
   if(spr&&spr.ready>=spr.n){   // ---- directional sprite (pick nearest of N facings) ----
-    // Infantry gait: draw the procedural leg cycle UNDER the sprite (torso silhouette covers the hips),
-    // rotated to travel direction, scaled to sprite size. Only while moving — idle sprites stay clean.
-    if(cls==='inf'&&u.moving) drawLegs(c,u,spr.size/30,'#26261e');
+    // NOTE: no overlay legs here — the rotation-derived overhead sprites have legs baked in
+    // (overlay legs doubled up: WS-A4). Gait is sway+wobble below, honest to a top-down view.
     const im=spr.img[dirIndex(u.face,spr.n)];
     if(im&&im.naturalHeight){ const h=spr.size, w=im.naturalWidth/im.naturalHeight*h, dy=-h*0.72, nW=im.naturalWidth, nH=im.naturalHeight;
-      c.drawImage(im,-w/2,dy,w,h);   // clean directional sprite — no squash/rotate (they warped facing + gummy-squished)
+      if(cls==='inf'&&u.moving){
+        // overhead gait: lateral sway perpendicular to travel + slight body wobble per step.
+        // (A waist-split shear is wrong for true-overhead art — the image's lower half isn't "legs".)
+        const ph=G.time*9+u.id*2.1, sway=Math.sin(ph)*1.1;
+        c.save();
+        c.translate(Math.cos(u.face+Math.PI/2)*sway, Math.sin(u.face+Math.PI/2)*sway);
+        c.rotate(Math.sin(ph*2)*0.055);
+        c.drawImage(im,-w/2,dy,w,h);
+        c.restore();
+      } else c.drawImage(im,-w/2,dy,w,h);   // clean directional sprite — never rotated to facing (frames encode it)
     }
   } else {
   c.save(); // ---- body (may be rotated by facing) ----

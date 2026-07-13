@@ -6,7 +6,7 @@
    straight through to the network. Robust to missing assets — a 404 on
    any single sprite must not break install. */
 
-const CACHE = 'browser-generals-v3';
+const CACHE = 'browser-generals-v4';
 
 // Unit sprite keys — 8 directional frames each (assets/<key>_0..7.png).
 // Keep in sync with UNIT_SPRITE_REG in generals-zero-hour.html.
