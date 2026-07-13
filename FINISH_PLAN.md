@@ -117,6 +117,11 @@ walks read shockingly well at 30px.
 confirms every unit reads as its type AND every frame's weapon points at its compass
 label. Max 3 re-rolls per unit, then fall back to keeping that unit's current
 cardinal frames with rotation-derived diagonals (WS-A1 applied to its existing _0).
+**✅ DONE 2026-07-08 (commit 063e1f5, live).** All 12 gen-new (ranger via sibling
+method — old _0 was 3/4-view); vision-reviewed 12×8 montage incl. diagonals; sizes
+uniform by construction; registration 30→45 (120px content in 180px canvas ≈ 30px
+on-screen); SW cache →v2. Accepted-weak: terrorist (no directional weapon — inherent),
+lotus (faint SMG), missile (bg wisp). A2b walk-pose NOT done (optional, later).
 
 ### WS-A3 [ASSET-GEN] — heli bodies without blades (fixes D4 + D5)
 **Objective:** comanche + chinook single East frames, overhead, **rotor blades
