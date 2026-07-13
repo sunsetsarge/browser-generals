@@ -2133,7 +2133,7 @@ function loadDirSprites(key,base,n,size){
 // register available unit sprites (8-direction frames in assets/<key>_0..7.png); missing -> vector fallback
 const UNIT_SPRITE_REG=[['ranger',45],['missile',45],['sniper',45],['burton',45],['redguard',45],['hunter',45],['lotus',45],['rebel',45],['rpg',45],['terrorist',45],['jarmen',45],['worker',45],   // rotation-derived infantry: content is ~120px centered in a 180px canvas (rotation headroom), so 45px box ≈ 30px on-screen soldier
  ['humvee',34],['crusader',38],['paladin',40],
- ['avenger',38],['tomahawk',38],['raptor',48],['aurora',50],['comanche',46],['chinook',46],
+ ['avenger',38],['tomahawk',38],['raptor',48],['aurora',50],['comanche',69],['chinook',69],
  // China
  ['dragon',36],['gattling',36],['battlemaster',38],
  ['overlord',50],['inferno',38],['nukecannon',40],['mig',46],['helix',48],
@@ -2309,15 +2309,20 @@ function drawUnit(c,u){
   }
   c.restore(); // ---- end body ----
   } // end vector/sprite branch
-  if(cls==='heli'){ // spinning rotor overlay (over sprite or vector body)
-    const rr=spr?spr.size*0.55:15;
-    c.save();
-    if(spr&&spr.ready>=spr.n) c.translate(0,-spr.size*0.22); // sprite fuselage centers at y=-0.22*size; sit blades on it
-    c.rotate((G.time*26+u.id)%TAU);
-    c.strokeStyle='rgba(30,30,30,.5)'; c.lineWidth=2.2; c.lineCap='round';
-    c.beginPath(); c.moveTo(-rr,0); c.lineTo(rr,0); c.moveTo(0,-rr); c.lineTo(0,rr); c.stroke();
-    c.strokeStyle='rgba(90,90,90,.10)'; c.lineWidth=1; c.beginPath(); c.arc(0,0,rr,0,TAU); c.stroke();
-    c.restore();
+  if(cls==='heli'){ // spinning rotor overlay (over sprite or vector body) — the ONLY blades; heli sprites are blade-free bodies
+    // hub offsets along the facing axis, in units of sprite size (chinook = twin-rotor)
+    const hubs = u.def.k==='chinook' ? [-0.26,0.26] : [0];
+    const rr=(spr?spr.size:27)*(hubs.length>1?0.34:0.5);   // twin rotors are smaller so the discs don't overlap
+    const hasSpr=spr&&spr.ready>=spr.n;
+    for(const h of hubs){
+      c.save();
+      if(hasSpr){ c.translate(Math.cos(u.face)*h*spr.size, Math.sin(u.face)*h*spr.size - spr.size*0.22); }
+      c.rotate((G.time*26+u.id+h*7)%TAU);
+      c.strokeStyle='rgba(30,30,30,.5)'; c.lineWidth=2.2; c.lineCap='round';
+      c.beginPath(); c.moveTo(-rr,0); c.lineTo(rr,0); c.moveTo(0,-rr); c.lineTo(0,rr); c.stroke();
+      c.strokeStyle='rgba(90,90,90,.10)'; c.lineWidth=1; c.beginPath(); c.arc(0,0,rr,0,TAU); c.stroke();
+      c.restore();
+    }
   }
   // role emblem above the unit (screen-up, never rotated) for non-default roles
   if(role!=='gun'&&role!=='scout'&&role!=='cannon'){
