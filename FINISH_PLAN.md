@@ -297,3 +297,125 @@ deploy.ps1 rewrites `browser-generals-v1` → content hash); error telemetry hoo
   and a win each.
 - PWA install + offline verified on a real phone.
 - Name decision made (see ROADMAP §Naming) and store-prep items ticked.
+
+---
+
+## §4 TRACK C — Source-Look Art Upgrade (added 2026-07-09 from the four-lane audit)
+Read `ART_DIRECTION.md` FIRST — it is the binding style bible (locked ~40° camera,
+palettes, prompt scaffold, IP guardrails, tooling map). Audit evidence in
+`AUDIT_2026-07-09.md`. ⚠ ComfyUI Desktop (:8000) must be running for ASSET-GEN WS.
+Order within Track C = the order below (Tier 1 → Tier 2).
+
+### WS-C1 `[sonnet-ok]` — asset hygiene sweep (zero regeneration risk)
+Erase contamination blobs on inferno_0/nukecannon_0/overlord_0/battlemaster_0
+(sheet-slice bleed at frame tops); hard-key bulldozer's semi-transparent white box
+(64% semi-alpha) to true alpha; delete the redundant dozer-vs-bulldozer duplicate
+(keep one key, alias the other in UNIT_SPRITE_REG); desaturate MiG ~15%; fix the
+size-hierarchy inversion in the registration table (dozer/bulldozer must be ≈ MBT
+size, not 1.6×); investigate + fix the "boxed green circle" object seen in
+screenshots (suspected decor tree drawn with a blocked-tile rim outline).
+**Acceptance:** re-render §V scene screenshots — no ghost boxes, no stray
+fragments, dozer ≤ tank on screen, mystery object resolved.
+
+### WS-C2 [ASSET-GEN] — GLA vehicle roster at hero fidelity (9 units)
+technical, quad, scorpion, marauder, buggy, toxin, scud, cycle, bombtruck are ALL
+64×64 top-down pixel minis from an early batch — a different game visually.
+Regenerate at ~140px painted fidelity matching the USA/China vehicles, Syndicate
+palette (khaki/rust/scrap/tarps), via the locked prompt scaffold + ControlNet
+silhouette lock (derive canny from existing minis to keep readable shapes) or
+init-controlled img2img (the WS-A3 proven method). 8 facings per unit: until the
+Tier-2 3D-proxy pilot lands, generate East + use per-facing img2img off the
+matching crusader-facing for elevation reference; verify every facing per §V.
+**Acceptance:** gallery + in-scene screenshot shows GLA units at same scale/style
+family as USA/China; facing montage passes; no EA trade-dress look-alikes.
+
+### WS-C3 [ASSET-GEN] — helicopter fidelity repaint (2 units)
+comanche (24.9% opaque wisp) and chinook (flat box) get repainted at raptor/mig
+fidelity: keep the blade-free-body + code-rotor architecture (WS-A3), same
+overhead camera FOR NOW (Tier 2 re-shoots at 40° later), but with painted panel
+lines, canopy, weathering via low-denoise img2img over the current bodies.
+**Acceptance:** side-by-side vs raptor reads as the same game; rotors still track
+hubs; §V.
+
+### WS-C4 `[sonnet-ok]` — terrain texture + water + roads + grid (code-only)
+In renderTerrain: overlay a procedurally-built tiling detail texture (sand grain /
+cracked earth per biome — generate one 256px tile per biome offline into assets/,
+or synthesize with layered noise), REMOVE the visible tile grid, blend water
+shorelines (soft edge + shore ring instead of tile-quantized rectangles — fixes
+the flat-blue-squares screenshot bug), redraw roads along corridor polylines with
+soft edges (kills the HQ starburst rays), add scorch/crater decals on explosions
+(ring buffer, fade), map-edge dark vignette instead of hard black cut.
+**Acceptance:** §V base-view + battle screenshots: ground reads textured, no grid,
+water has soft shores + shimmer, roads read as roads, explosions leave marks.
+
+### WS-C5 [ASSET-GEN] `[sonnet-ok]` — painted decor sprites
+Replace vector trees/rocks/cacti with small painted sprites (3 trees, 2 rocks,
+1 cactus, 1 shrub, 2 wrecks per biome palette) generated with the scaffold;
+engine draws them with the shared runtime shadow. **Acceptance:** decor no longer
+clashes with painted buildings in screenshots.
+
+### WS-C6 `[sonnet-ok]` — unified shadows + team-color trim (code)
+Strip reliance on baked shadows: draw one runtime ellipse shadow (same offset/
+alpha, single global light) under every unit/aircraft; add house-color system:
+2px trim stripe on vehicles, canopy tint on helis, small flag/light on buildings
+(player=blue-band, enemy=red-band by default, faction palettes unchanged).
+**Acceptance:** mixed-generation sprites sit on one ground plane in screenshots;
+ownership readable at a glance without HP bars.
+
+### WS-C7 `[sonnet-ok]` — combat FX density pass (code)
+Muzzle flashes + short tracer lines per shot, shell-impact sparks, bigger layered
+explosions (fireball + debris + oily smoke column), lingering scorch decals
+(shares WS-C4 buffer), impact camera micro-shake (2px, 80ms, big blasts only).
+Budgeted: respect PART_CAP; scale counts by zoom. **Acceptance:** staged 16-unit
+battle screenshot reads as a firefight (multiple flashes/tracers/smoke visible);
+300-unit fight >=55fps.
+
+### WS-C8 — UI de-emoji + cameo command bar
+Replace ALL emoji with drawn assets: cameo build buttons auto-cropped from each
+unit's East frame + building sprites (one script renders 64px cameos with colored
+frames + dark outline into assets/cameo_*.png), stat icons as tiny drawn glyphs,
+stencil display font (embed a free SIL-licensed one, subsetted) for headers,
+minimap in a framed radar housing, selected-unit portrait + veterancy chevrons
+panel. Keep the existing dark-olive CSS layout. **Acceptance:** zero emoji in the
+shipped UI; build buttons show unit imagery; screenshot side-by-side reads
+war-room, not web app.
+
+### WS-C9 [ASSET-GEN, Tier 2 PILOT] — 3D-proxy camera unification pilot
+The structural fix for camera anarchy (see ART_DIRECTION §3 Tier 2): Meshy (1074
+credits) or Blender-built low-poly proxy for ONE tank (crusader) + ONE infantry
+(ranger); render 8 yaws at the locked 40° camera in Blender (Blender MCP;
+checkpoint .blend first per its skill rules); batch-restyle renders via img2img/
+Qwen-Edit into the painted look; integrate as <key>_0..7 and A/B screenshot vs
+current. **GATE: Blaine reviews the A/B before the roster batch is approved.**
+If passed -> follow-up WS batches all vehicles/aircraft/infantry + 3/4 building
+facades per faction; rotation-derivation retires for units done this way.
+
+## §5 TRACK D — Engine hardening (top audit code findings, added 2026-07-09)
+### WS-D1 `[sonnet-ok]` — deploy pipeline correctness
+deploy.ps1: copy public/index.html only AFTER firebase deploy succeeds (or restore
+mtime on failure) — the current copy-then-deploy order makes a failed deploy
+silently skip forever after; AUTO-BUMP the sw.js cache version (content-hash stamp
+into browser-generals-HASH) on every deploy; generate the sw.js precache
+unit/building lists FROM the HTML's UNIT_SPRITE_REG at deploy time (hand-sync
+drifts -> broken offline).
+### WS-D2 `[sonnet-ok]` — save system fixes
+Two slots (manual vs auto) + validate-before-wipe in deserialize (parse fully into
+a staging object, only then resetMatchState); reset G.upgrades in startGame (the
+warCollege leak persists across matches); round path floats + drop per-unit path
+tails in serialize (autosave hitch/quota); construction-damage fix (updateBuild
+must not overwrite battle damage: track damageTaken separately).
+### WS-D3 `[sonnet-ok]` — devicePixelRatio rendering
+resize() must size canvas at CSSxDPR and scale the context — the whole game is
+blurry on phones today, undermining every art WS. Verify perf at DPR 2 (may need
+render-scale cap on weak devices).
+### WS-D4 — canvas memory on Large maps
+terrCanvas + two water canvases allocate ~315MB RGBA on 128^2 maps — iOS eviction
+risk. Water shimmer -> small per-pond canvases (4-12 tiles each); consider terrain
+tiling into 1024px chunks rendered lazily.
+### WS-D5 — input-mode state machine (pre-B2 dependency)
+Consolidate G.placing/amoveMode/swTargeting/wallDrag/touch.mode into one explicit
+mode enum with enter/exit fns — the Powers targeting (WS-B2) needs a 6th mode and
+the current 5-flag convention is where it will break.
+### WS-D6 `[sonnet-ok]` — AI polish bugs
+AI superweapon + wave targeting must exclude wall segments (a nuke on a $60 wall
+tile) — filter target pools by def.cost>=200 or !def.wall.
