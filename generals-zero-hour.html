@@ -854,7 +854,17 @@ function renderTerrain(){
   }
   c.lineCap='butt';
   // WS-2.1 cliff/cluster rims: 2px dark rim + 1px north highlight on blocked-terrain clusters.
+  // WS-C1: rims are for genuine multi-tile terrain clusters only — every blocked tile also
+  // carries a decor sprite (tree/rock, see the decor-population loop above), so an ISOLATED
+  // single-tile blocked spot (a size-1 cliff-walk remnant, or a lone rock) was rendering as a
+  // full 4-sided box around one decor sprite ("boxed green circle" bug). Skip tiles with no
+  // blocked neighbor in any of the 8 directions — a true cluster always has at least one.
   for(let ty=0;ty<MH;ty++)for(let tx=0;tx<MW;tx++){ if(terr[tIdx(tx,ty)]!==1) continue;
+    let hasClusterNbr=false;
+    for(let dy=-1;dy<=1&&!hasClusterNbr;dy++)for(let dx=-1;dx<=1;dx++){ if(!dx&&!dy) continue;
+      const nx=tx+dx, ny=ty+dy; if(nx<0||ny<0||nx>=MW||ny>=MH) continue;
+      if(terr[tIdx(nx,ny)]===1){ hasClusterNbr=true; break; } }
+    if(!hasClusterNbr) continue;
     const X=tx*TILE, Y=ty*TILE;
     const openN=ty===0||terr[tIdx(tx,ty-1)]!==1, openS=ty>=MH-1||terr[tIdx(tx,ty+1)]!==1;
     const openW=tx===0||terr[tIdx(tx-1,ty)]!==1, openE=tx>=MW-1||terr[tIdx(tx+1,ty)]!==1;
@@ -2141,7 +2151,7 @@ const UNIT_SPRITE_REG=[['ranger',45],['missile',45],['sniper',45],['burton',45],
  ['cycle',32],['technical',34],['buggy',34],['quad',32],
  ['scorpion',36],['marauder',40],['bombtruck',34],['toxin',36],['scud',44],
  // build-out: China Supply Truck (sprites dropped upstream) + new dozers/transport
- ['truck',56],['bulldozer',62],['dozer',62],['battlebus',54]];
+ ['truck',56],['bulldozer',40],['dozer',40],['battlebus',54]];   // WS-C1: dozer/bulldozer were 62 (1.6x an MBT); bulldozer's asset set (higher fidelity, ghost-box fixed) now also backs 'dozer' via file-copy (assets/dozer_0..7.png), size matched to ~MBT scale
 const UNIT_SPRITE_KEYS=UNIT_SPRITE_REG.map(a=>a[0]);   // canonical order (survives self-deletion of fully-404'd sets)
 const UNIT_SPRITE_SIZE=Object.fromEntries(UNIT_SPRITE_REG);
 UNIT_SPRITE_REG.forEach(a=>loadDirSprites(a[0],'assets/'+a[0],8,a[1]));

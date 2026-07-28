@@ -316,6 +316,12 @@ size, not 1.6×); investigate + fix the "boxed green circle" object seen in
 screenshots (suspected decor tree drawn with a blocked-tile rim outline).
 **Acceptance:** re-render §V scene screenshots — no ghost boxes, no stray
 fragments, dozer ≤ tank on screen, mystery object resolved.
+**✅ DONE 2026-07-09.** 14 contaminated frames fixed via connected-component alpha
+analysis (cardinals of inferno/nukecannon/battlemaster + overlord 2/6); bulldozer
+ghost box hard-keyed; dozer files replaced by bulldozer art (defs untouched);
+MiG desaturated 15%; dozer sizes 62→40; mystery box = cliff rim drawn on isolated
+single terr tiles — fixed with 8-dir neighbor check (MAPTEST still 750/750).
+Orchestrator spot-checked live assets on tan: PASS.
 
 ### WS-C2 [ASSET-GEN] — GLA vehicle roster at hero fidelity (9 units)
 technical, quad, scorpion, marauder, buggy, toxin, scud, cycle, bombtruck are ALL
