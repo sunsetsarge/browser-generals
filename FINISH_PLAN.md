@@ -568,3 +568,34 @@ to anything so the pool is never wrongly empty. Wired into the AI superweapon
 base: 5,000 pool draws -> 0 walls / 0 targets under $200; 200 simulated AI scudstorm
 shots -> nearest building to every impact was hq/power/supply/barracks, 0 walls; 2,000
 wave-target draws -> 0 walls.
+
+
+---
+
+## §6 COMPLETION PUSH STATUS (2026-08-01, orchestrator-verified)
+
+**DONE + LIVE** (commit 8c03a6a / deploy 0583976):
+- WS-D1 deploy pipeline (deploy-then-stamp gate, content-hash SW auto-bump, generated
+  precache lists) — VERIFIED live: cache name `browser-generals-95d606d612a8`, 42 unit +
+  18 bld keys generated. **No more manual sw.js version bumps.**
+- WS-D2 save slots + validate-before-wipe + upgrades leak + construction damage
+- WS-D3 devicePixelRatio  | WS-D6 AI wall-targeting
+- WS-C4 terrain texture/water/roads/grid/vignette | WS-C6 shadows + team color | WS-C7 FX
+- WS-B1 music (ZzFXM inlined) + ducking | WS-B5 end-screen stats + career + hints
+- WS-B2 Generals' Powers (9/9 fire with measured effects) | WS-B4 AI personalities
+- ORCHESTRATOR BUGFIX: `startGame()` never called `resetMatchState()` → any direct
+  startGame leaked the previous match's army (off-roster enemy units). Fixed + verified
+  0 off-roster across 3 consecutive 60s matches.
+
+**REMAINING (honest):**
+- WS-C9 3D-proxy pilot: **step 1 DONE** (16 locked-camera renders committed, facing correct
+  by construction). Step 2 restyle + A/B montage NOT done — two long agents were killed by
+  session teardown. Do this in a FOREGROUND pass, not a background agent.
+- WS-C2 GLA vehicle roster (still 64px pixel minis), WS-C3 heli fidelity repaint,
+  WS-C5 painted decor, WS-C8 UI de-emoji/cameos — all ASSET-GEN, need ComfyUI running.
+- WS-C1 follow-up: **overlord renders as an olive-green blob** and is off-palette from
+  China's red — add to the C2 batch.
+- WS-D4 canvas memory (Large maps ~315MB), WS-D5 input-mode FSM, WS-B3 mobile pinch/zoom,
+  WS-B6 balance sim harness, WS-B7 onerror telemetry + post-change 300-unit fps re-verify.
+- Definition of Done human gates: 3 human playthroughs, real-phone PWA check, NAMING
+  decision ("Iron Sunset" collides with a 2015 indie browser game).
