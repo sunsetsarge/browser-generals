@@ -6,23 +6,39 @@
    straight through to the network. Robust to missing assets — a 404 on
    any single sprite must not break install. */
 
-const CACHE = 'browser-generals-v5';
+/* WS-D1: THIS FILE IS A TEMPLATE. deploy.ps1 rewrites the three @gen regions below
+   into public/sw.js at deploy time:
+     - CACHE      gets a content hash of index.html + every staged asset, so returning
+                  players never get a stale game (hand-bumping browser-generals-vN is dead).
+     - UNIT_KEYS  is generated from UNIT_SPRITE_REG in generals-zero-hour.html.
+     - BLD_KEYS   is generated from the BLD_SPRITES key list in the same file.
+   Edit the game, not these lists. The literals kept here are only the fallback used if
+   this file is served directly (e.g. local `python -m http.server`). */
 
-// Unit sprite keys — 8 directional frames each (assets/<key>_0..7.png).
-// Keep in sync with UNIT_SPRITE_REG in generals-zero-hour.html.
+/* @gen:cache */
+const CACHE = 'browser-generals-7eb7fbbe2894';
+/* @end:cache */
+
+// Unit sprite keys — 8 directional frames each (assets/<key>_0..7.png). Generated from UNIT_SPRITE_REG.
+/* @gen:unit-keys */
 const UNIT_KEYS = [
-  'ranger','missile','sniper','burton','redguard','hunter','lotus','rebel','rpg','terrorist','jarmen','worker',
-  'humvee','crusader','paladin','avenger','tomahawk','raptor','aurora','comanche','chinook',
-  'dragon','gattling','battlemaster','overlord','inferno','nukecannon','mig','helix',
-  'cycle','technical','buggy','quad','scorpion','marauder','bombtruck','toxin','scud',
-  'truck','bulldozer','dozer','battlebus'
+  'ranger','missile','sniper','burton','redguard','hunter','lotus','rebel',
+  'rpg','terrorist','jarmen','worker','humvee','crusader','paladin','avenger',
+  'tomahawk','raptor','aurora','comanche','chinook','dragon','gattling','battlemaster',
+  'overlord','inferno','nukecannon','mig','helix','cycle','technical','buggy',
+  'quad','scorpion','marauder','bombtruck','toxin','scud','truck','bulldozer',
+  'dozer','battlebus'
 ];
+/* @end:unit-keys */
 
-// Building sprite keys — up to 3 health states each (assets/bld_<k>_0..2.png).
+// Building sprite keys — up to 3 health states each (assets/bld_<k>_0..2.png). Generated from BLD_SPRITES.
+/* @gen:bld-keys */
 const BLD_KEYS = [
-  'hq','power','supply','barracks','training','factory','air','def','firebase','strategy',
-  'particle','bunker','propaganda','nuke','market','tunnel','palace','scudstorm'
+  'hq','power','supply','barracks','training','factory','air','def',
+  'firebase','strategy','particle','bunker','propaganda','nuke','market','tunnel',
+  'palace','scudstorm'
 ];
+/* @end:bld-keys */
 
 function buildPrecacheList() {
   const list = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-512-maskable.png'];

@@ -224,6 +224,15 @@ pad + bass loop with intensity tied to `ambBattle` level, or (b) embed ZzFXM
 with attribution comment) + 2 short tracked loops (menu, battle). Add: per-faction ack pitch already exists; add volume ducking
 (alarms duck ambient by 50% for 2s). Acceptance: menu + gameplay music loops,
 mute/volume still master everything, file grows <40KB.
+**DONE 2026-07-31 (option b).** zzfxG+zzfxM inlined w/ MIT attribution; `SONG_MENU`
+(90 BPM, 3 ch, 10.667s loop) + `SONG_BATTLE` (138 BPM, 5 ch, 6.956s loop), rendered
+lazily to normalized (peak 0.85) AudioBuffers, `loopEnd`=musical length so they loop
+seamlessly. Graph: musicGain → duckGain → sfxGain → destination (volume slider +
+mute master music; `AUDIO.music` toggle in pause settings, persisted). Alarms
+(`alarmPower/Attack/Super`) + `announce()` duck music+ambient to 0.50 for 2s then
+restore. Evidence: AudioContext 'running', musicGain 0.55 unmuted → 0.006 muted →
+0.545 unmuted, duck 1.0→0.5→0.93; render 254ms menu / 119ms battle (off the click
+handler, cached); file delta +18.4KB total incl. WS-B5.
 
 ### WS-B2 — Generals' Powers (the big missing ZH feature)
 3 powers per faction, charged by a global timer + kills (like superweapons but
@@ -238,6 +247,40 @@ AI usage (fire at largest enemy blob on cooldown). Per SPEC faction identity:
   for 25s), Tunnel Strike (teleport up to 6 selected units to any explored point).
 Charge: first at 4min, +25% per subsequent. Acceptance: all 9 castable, AI casts,
 icons+cooldown rings render, save/load persists charge state.
+**DONE 2026-07-31.** `POWERS` table + `POWER_FIRST_CD=240` / `POWER_CD_GROWTH=1.25`;
+ONE shared charge per OWNER (`G.powers[o] = {t,casts,healRate,last,buff:{heal,rally,bounty}}`),
+not per building. Charge curve measured 240 / 300 / 375 / 468.8 / 585.9s. Engine =
+`castPower()` (gate+bill) → `applyPower()` (effect, may refuse without spending, e.g.
+Tunnel Strike with an empty selection); `powerTick()` runs in update() after unit
+movement and owns buff timers, `G.mines`, and scheduled `G.powerFx` barrages.
+UI = `#powerRow` under the minimap: 3 buttons w/ conic-gradient cooldown ring + m:ss
+timer, click-to-arm, world reticle drawn at the true effect radius.
+MEASURED (headless, per power): Precision Strike 1,667 dmg / 9 of 12 killed clustered,
+250 (mean 256 over 8 samples, engine ±15%) on a structure at dead centre · Field
+Surgeons +780 HP over 10s = exactly 30% of the army's max HP · Paradrop 3 ranger +
+2 missile · Artillery Barrage 12 shells at 0.333s spacing, 765 dmg clustered / 296
+spread, queue drains · People's Rally 0→5 of 5 spread units horde-flagged, redguard
+dmg 9→11.25 and speed 55→60.5, and it reaches AIR units the horde rule excludes
+(helix 16→20), reverting at 20s · Minefield 8 mines inside r90, 1s arm delay, friendly
+unit stands on one for 2s taking 0 dmg, 3 enemies → 360 dmg / 3 kills · Ambush 4 rebel
++ 2 rpg · Scrap Bounty $270→$540 on an $1,800 kill (×2.00), back to $270 at 25s ·
+Tunnel Strike 6-unit cap enforced from 13 selected, 424–516px displacement, refuses
+unexplored ground AND empty selection without spending the charge.
+AI: `aiCastPower()` rotates all 3 powers (verified 6/6 casts across all three factions),
+offensive powers at the biggest player blob (observed 10px from a player ranger),
+buffs gated on army size/wounded count, minefield on its own approach lane. **3,000
+forced AI point-casts against a base that is 92.9% wall segments: 0 aim points inside a
+wall tile** (both the cluster branch and the structure branch).
+SAVE: schema v1→**v2**; `powers`/`mines`/`powerFx` round-trip bit-identical for BOTH
+owners (t, casts, buff timers, `last`, in-flight shell count and sub-step timer);
+v1 saves throw `save version mismatch` with the running match intact and `saveMeta`
+returns null so Continue stays hidden.
+RESKIN: the player-visible label is **"COMMAND POWERS"** / "COMMAND POWER READY", NOT
+"General's Powers" — RESKIN_MAP §6 bans "Generals" in visible strings and that is the
+source game's name for this feature. Banned-term grep over 454 display strings: 0 hits.
+KNOWN: Paradrop/Ambush units count toward `G.stats.built` (they are units you gained,
+but they add ~50 to the WS-B5 score); reticle/sidebar were verified by DOM geometry +
+canvas pixel probes, not by eye — this environment has no compositor.
 
 ### WS-B3 `[sonnet-ok]` — mobile touch pass
 Playtest-driven: bigger touch targets (min 44px), two-finger pan + pinch zoom
@@ -250,6 +293,31 @@ Easy/Normal/Hard exist; add per-faction AI flavor: Coalition AI techs faster + u
 air; Pact AI masses 2× wave sizes; Syndicate AI raids harvesters + rebuilds cheap.
 Implement as a small `AI_STYLE` table consumed by the existing wave logic.
 Acceptance: 3 test games (one per enemy faction) show visibly different pressure.
+**DONE 2026-07-31.** `AI_STYLE` = {waveMul, techCushion, rebuild, costBias, armorBias,
+raid, retreat, src{}} per faction, consumed by aiTick's build order (`aiWantList`),
+production weights (`aiUnitWeight` + `wpick`), wave threshold (`diff.wave × waveMul`),
+and target choice (`aiRaidTarget`). **Zero knob overlap with DIFFS** (style = composition
++ behaviour, difficulty = income/base wave/interval/grace) — verified by key-set
+intersection = ∅ and a 3×3 threshold matrix (e.g. normal: Coalition 3,000 / Pact 8,000 /
+Syndicate 3,400).
+OBSERVED over 700s scripted matches, one per enemy faction, same difficulty and map:
+| | Coalition | Pact | Syndicate |
+|---|---|---|---|
+| waves | 3 | 2 | 6 |
+| avg wave | 10.7 units / $8,167 | 19.5 units / $11,850 | 14.2 units / $7,455 |
+| army @700s | 84 units / $98,700 | 85 / $65,650 | 135 / $70,060 |
+| air | 35 (42%) | 3 | 0 |
+| heavy armour | 16 | 25 | 9 |
+| infantry | 10 | 28 | 51 |
+| wave targets | 3 structures | 2 structures | **5 of 6 = the player's harvester** |
+| tech reached | Command Uplink @700s | Broadcast Center | Palace |
+Pact fields 1.82× Coalition's wave size and 1.45× its value; Coalition's roster is
+42% aircraft vs Syndicate's 0%; Syndicate raids harvesters and builds 135 cheap units.
+RETREAT: at 1.18× army parity the Syndicate AI recalls 0 of 10 committed attackers;
+outmatched 0.07× it recalls 10 of 10 to within 200px of its HQ — the Pact AI
+(retreat:0) recalls 0 of 10 in the identical losing position.
+TESTABILITY: added `window.FORCE_AI_FAC` (same pattern as `FORCE_BIOME`) so the
+opponent faction can be pinned; ignored unless it names a different valid faction.
 
 ### WS-B5 `[sonnet-ok]` — match flow & meta
 End-screen upgrade: stats table (units built/lost, damage, salvage, match time,
@@ -258,6 +326,21 @@ localStorage (career W/L per faction). A 6-step first-game hint overlay
 (build power → barracks → train → harvest → expand → destroy HQ), dismissable,
 shown once (localStorage flag). Acceptance: hints show on fresh profile only;
 end screen numbers match G.stats.
+**DONE 2026-07-31.** End screen = stat table (time, built, lost, kills, razed,
+damage dealt, credits earned) + SCORE + career line; `G.stats` gained `dmg`
+(overkill excluded) and `earned` (harvest + GLA salvage + income buildings).
+`matchScore()` = kills·100 + razed·250 + built·10 + dmg/10 + earned/25 − lost·40,
+win adds 1000 + a speed bonus decaying to 0 at 15min, ×0.8/1/1.35 by difficulty.
+Career W/L per faction + best score in `localStorage['bg_career']`, shown on the end
+screen AND the start screen. 6-step `#hintBox` (pointer-events:none, skip button,
+progress dots) gated on `localStorage['bg_hints_done']`; step 1 is faction-aware
+(GLA has no power plant → Scrap Yard). DEVIATION: the starting base already ships a
+power plant + barracks, so steps 1–2 detect a *second* one against a baseline
+snapshot rather than the first. Evidence: scripted GLA/hard win →
+built 6 / lost 2 / kills 7 / razed 2 / dmg 4,770 / earned $2,449 / SCORE 4,995
+(hand-checked against the formula); all 6 hints advanced in order; second run
+suppressed (helpBox shown instead); save/load round-trips the new fields and
+pre-B5 saves normalize to 0 (no NaN).
 
 ### WS-B6 — balance sim harness + tuning pass
 Headless auto-battle: `?test=balance` pits scripted armies (the 6 SPEC §2 duels +
@@ -404,16 +487,58 @@ silently skip forever after; AUTO-BUMP the sw.js cache version (content-hash sta
 into browser-generals-HASH) on every deploy; generate the sw.js precache
 unit/building lists FROM the HTML's UNIT_SPRITE_REG at deploy time (hand-sync
 drifts -> broken offline).
+**DONE 2026-07-31.** deploy.ps1 rewritten (+`-DryRun`). Gate is ARMED before the
+deploy (dst mtime -> 2000-01-01) and only stamped after firebase exits 0 — sandbox
+test with a stubbed firebase: exit 1 -> retries next run; exit 0 -> stamps, next run
+prints "source unchanged, skipping"; touch src -> deploys again. sw.js is now a
+TEMPLATE with `@gen:cache` / `@gen:unit-keys` / `@gen:bld-keys` regions; deploy.ps1
+generates public/sw.js from UNIT_SPRITE_REG + BLD_SPRITES (42 unit + 18 bld keys,
+byte-identical to the runtime lists, 396 unique precache entries, all present on
+disk) and stamps `browser-generals-<sha256(index.html+all staged assets)[0:12]>`
+(= browser-generals-7eb7fbbe2894; changes on edit, restores on revert). Generated
+file passes `node --check` (deploy aborts if not) and executes in node. Fail-closed
+guards proven: missing UNIT_SPRITE_REG, <20 unit keys, <10 bld keys, or a missing
+@gen region all abort before deploy.
 ### WS-D2 `[sonnet-ok]` — save system fixes
 Two slots (manual vs auto) + validate-before-wipe in deserialize (parse fully into
 a staging object, only then resetMatchState); reset G.upgrades in startGame (the
 warCollege leak persists across matches); round path floats + drop per-unit path
 tails in serialize (autosave hitch/quota); construction-damage fix (updateBuild
 must not overwrite battle damage: track damageTaken separately).
+**DONE 2026-07-31.** Slots: manual `bg_save` (doSaveGame) vs `bg_autosave`
+(autosaveTick); `newestSave()` picks the newer valid one — verified the 60s autosave
+no longer clobbers a manual save and load always takes the newest. deserialize =
+`applySave(parseSave(S))`: parseSave validates the WHOLE save into staging (faction,
+map dims, grid lengths vs MW*MH, base64 decode, entity resolution) touching no live
+state — 9 corruption cases (bad version, unknown faction, truncated/garbage terrain,
+null cam, MW=0, no entities, non-object, null) ALL threw with the running match
+byte-identical, and the good save still loaded. `G.upgrades` reset in startGame
+(warCollege=true -> new match -> false). serialize: dest+path rounded to 1dp, path
+rebased to `pi` and dropped above PATH_SAVE_MAX=24 (applySave repaths from `dest`);
+real in-game paths are only ~9 waypoints of tile-center integers, so this is
+defensive — measured autosave size is unchanged (260,111 B on Large). Construction
+damage: dealDamage banks `b.dmg` on unfinished sites, updateBuild sets
+hp = ramp - dmg and calls killEnt at <=0, completion sets hp = maxHp - dmg. Verified:
+64 dmg at prog 3s survived 3 more build seconds (hp 556 = ramp 620 - 64) and finished
+at 736/800, NOT full-healed; a site taking 3x maxHp dies instead of building on.
 ### WS-D3 `[sonnet-ok]` — devicePixelRatio rendering
 resize() must size canvas at CSSxDPR and scale the context — the whole game is
 blurry on phones today, undermining every art WS. Verify perf at DPR 2 (may need
 render-scale cap on weak devices).
+**DONE 2026-07-31.** resize() sets canvas.width/height = CSS px x DPR (capped at 2)
+and `ctx.setTransform(DPR,0,0,DPR,0,0)`; all game math stays in CSS px, read via the
+new `viewW()`/`viewH()` (render clear + inView culling converted — they were the only
+two game-code readers of canvas.width/height). Verified at 1500x850: DPR1 -> 1500x850
+store, DPR2 -> 3000x1700 store with transform 2 and viewW/viewH still 1500/850, camera
+and world->screen coords bit-identical across both, devicePixelRatio 3 clamps to 2,
+and a 1 CSS-px fillRect covers exactly device pixels (0,0)-(1,1) at DPR2. computeLayout
+/ touch+mouse handlers (clientX) / minimap (getBoundingClientRect) / fogCanvas (MW x MH)
+are all CSS-px or independent and were left alone. ?test=map still 750/750 PASS.
+NOT VERIFIED: real phone frame rate at DPR2 — this environment has no compositor, so
+absolute ms readings are meaningless; forced-rasterization timing showed 4x the pixels
+costing ~1.76x the frame time (sub-linear, per-entity draw calls dominate fill rate).
+KNOWN REMAINING BLUR: the 216x216 minimap backing store is untouched (it upscales via
+CSS on mobile) — out of WS-D3 scope, would need MSC/miniTerr reworked.
 ### WS-D4 — canvas memory on Large maps
 terrCanvas + two water canvases allocate ~315MB RGBA on 128^2 maps — iOS eviction
 risk. Water shimmer -> small per-pond canvases (4-12 tiles each); consider terrain
@@ -422,6 +547,24 @@ tiling into 1024px chunks rendered lazily.
 Consolidate G.placing/amoveMode/swTargeting/wallDrag/touch.mode into one explicit
 mode enum with enter/exit fns — the Powers targeting (WS-B2) needs a 6th mode and
 the current 5-flag convention is where it will break.
+**DONE 2026-07-31 (with WS-B2).** `inputMode()` / `enterMode(m,data)` / `exitMode()`.
+The flags stay as what the handlers and renderer READ (no rewrite of the input layer),
+but they are now WRITTEN only by enter/exit, so arming any mode disarms the other four
+and `G.wallDrag` can never outlive `G.placing`. Modes: place · amove · super · power ·
+none. All 11 former writers rerouted (build button, `a` key, swBtn, mobile ATK/STOP/CLR,
+Escape, right-click cancel, both place-commit paths, wall-line commit, power buttons).
+`touch.mode` stays a per-gesture sub-state and gained a `'power'` branch.
+VERIFIED: the documented transition table, plus 400 randomised mode changes with
+**0 states where more than one flag was armed** and 0 orphaned wallDrag.
+Right-click now cancels super/power targeting (it previously fell through to
+issueCommand) — deliberate, consistent with place/amove.
 ### WS-D6 `[sonnet-ok]` — AI polish bugs
 AI superweapon + wave targeting must exclude wall segments (a nuke on a $60 wall
 tile) — filter target pools by def.cost>=200 or !def.wall.
+**DONE 2026-07-31.** New `strikeTargets(owner)` (next to myBuildings): drops
+`def.wall`, prefers `def.cost >= STRIKE_MIN_COST (200)`, degrades to any non-wall then
+to anything so the pool is never wrongly empty. Wired into the AI superweapon
+(updateBuilding) and the aiTick attack wave. Verified with 60 walls around the player
+base: 5,000 pool draws -> 0 walls / 0 targets under $200; 200 simulated AI scudstorm
+shots -> nearest building to every impact was hq/power/supply/barracks, 0 walls; 2,000
+wave-target draws -> 0 walls.

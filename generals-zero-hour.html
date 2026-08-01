@@ -39,6 +39,18 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0c08;font-family:
 .bbtn.active{border-color:var(--gold);box-shadow:0 0 6px #e8c06088;}
 .bbtn .q{position:absolute;top:1px;right:3px;font-size:10px;color:#fff;background:#0008;border-radius:3px;padding:0 3px;pointer-events:none;}
 .bbtn .pg{position:absolute;left:0;bottom:0;height:3px;background:var(--green);width:0%;pointer-events:none;}
+/* WS-B2 general's-powers row (under the minimap): icon + cooldown ring + timer */
+#powerRow{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;flex:none;}
+.pwbtn{position:relative;background:#252b1b;border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;padding:4px 2px 3px;display:flex;flex-direction:column;align-items:center;gap:1px;min-height:52px;overflow:hidden;}
+.pwbtn .ic{font-size:19px;line-height:1;pointer-events:none;}
+.pwbtn .nm{font-size:8.5px;line-height:1.05;text-align:center;pointer-events:none;}
+.pwbtn .ring{position:absolute;inset:0;pointer-events:none;background:conic-gradient(rgba(6,8,4,.74) 0deg,rgba(6,8,4,.74) var(--a,0deg),rgba(0,0,0,0) var(--a,0deg));}
+.pwbtn .cdT{position:absolute;bottom:1px;right:3px;font-size:9px;color:var(--gold);font-variant-numeric:tabular-nums;pointer-events:none;}
+.pwbtn.rdy{border-color:var(--gold);box-shadow:0 0 7px #e8c06077;}
+.pwbtn.armed{border-color:#ffe14d;box-shadow:0 0 11px #ffe14dcc;}
+.pwbtn:hover{background:#37412a;}
+body.mobile .pwbtn{min-height:62px;}
+body.mobile .pwbtn .nm{font-size:9.5px;}
 #selInfo{margin-top:auto;border-top:1px solid var(--border);padding-top:6px;font-size:12px;min-height:64px;line-height:1.45;}
 .perkBtn{display:block;width:100%;margin-top:3px;background:#252b1b;border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 5px;font-size:10.5px;text-align:left;cursor:pointer;}
 .perkBtn:hover:not(:disabled){background:#37412a;border-color:#7a8560;}
@@ -62,6 +74,27 @@ body.mobile .deskonly{display:none!important;}
 #btnStart:disabled{opacity:.35;cursor:not-allowed;}
 #endScreen h1{font-size:48px;letter-spacing:4px;}
 #endScreen .stats{font-size:15px;color:#b9c0a4;text-align:center;line-height:1.8;}
+/* WS-B5 end-screen stat table + career line */
+.statTbl{border-collapse:collapse;margin:0 auto;font-size:14px;line-height:1.55;}
+.statTbl td{padding:1px 14px;}
+.statTbl td:first-child{text-align:right;color:#8d9578;}
+.statTbl td:last-child{text-align:left;color:var(--text);font-weight:600;font-variant-numeric:tabular-nums;}
+.statTbl .scoreRow td{padding-top:9px;font-size:20px;color:var(--gold);border-top:1px solid var(--border);}
+.careerLine{margin-top:12px;font-size:12px;color:#8d9578;text-align:center;max-width:520px;line-height:1.6;}
+#careerBar{font-size:12px;color:#8d9578;margin-top:-10px;text-align:center;}
+/* WS-B5 first-game hint overlay — advisory only, never eats input */
+#hintBox{position:absolute;left:12px;top:calc(52px + env(safe-area-inset-top));width:290px;z-index:44;
+  background:var(--panel);border:1px solid var(--gold);border-left:4px solid var(--gold);border-radius:8px;
+  padding:8px 10px 9px;font-size:12.5px;line-height:1.5;box-shadow:0 4px 18px #000a;pointer-events:none;}
+#hintBox .hintHead{display:flex;align-items:center;gap:8px;font-size:10px;letter-spacing:2px;color:var(--gold);margin-bottom:4px;}
+#hintBox .hintHead .hgrow{flex:1;}
+#hintSkip{pointer-events:auto;background:#2e3424;color:var(--text);border:1px solid var(--border);border-radius:4px;
+  padding:1px 7px;font-size:11px;cursor:pointer;}
+#hintSkip:hover{background:#3c4430;border-color:var(--gold);}
+#hintProg{display:flex;gap:4px;margin-top:6px;}
+#hintProg i{flex:1;height:3px;border-radius:2px;background:#3a422c;}
+#hintProg i.on{background:var(--gold);}
+body.mobile #hintBox{left:8px;right:8px;width:auto;top:calc(46px + env(safe-area-inset-top));font-size:12px;}
 #helpBox{position:absolute;left:12px;bottom:12px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:12px;line-height:1.7;z-index:40;max-width:340px;}
 #helpBox b{color:var(--gold);}
 .foot{position:absolute;bottom:8px;font-size:11px;color:#6b745a;text-align:center;padding:0 10px;}
@@ -187,6 +220,8 @@ body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-are
 <div id="sidebar" class="hidden">
   <button id="sideClose" title="Close">✕</button>
   <canvas id="minimap" width="216" height="216"></canvas>
+  <div class="sideTitle" id="powerTitle">COMMAND POWERS</div>
+  <div id="powerRow"></div>
   <div class="sideTitle">STRUCTURES</div>
   <div id="buildGrid" class="grid"></div>
   <div class="sideTitle">UNITS</div>
@@ -197,6 +232,7 @@ body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-are
 <div id="startScreen" class="ov">
   <h1>IRON SUNSET</h1>
   <div class="sub">Fast single-file skirmish RTS — by SunsetSarge</div>
+  <div id="careerBar"></div>
   <div class="cards" id="facCards"></div>
   <div class="diffRow">Difficulty:
     <button data-d="easy">Easy</button>
@@ -238,6 +274,7 @@ body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-are
     <label class="psRow"><span>🔊 Volume</span><input id="pVol" type="range" min="0" max="1" step="0.05"></label>
     <label class="psRow"><span>Mute</span><input id="pMute" type="checkbox"></label>
     <label class="psRow"><span>🗣 Announcer</span><input id="pAnnouncer" type="checkbox"></label>
+    <label class="psRow"><span>🎵 Music</span><input id="pMusic" type="checkbox"></label>
   </div>
   <div id="pSaveMsg" class="psMsg"></div>
   <div class="foot" style="position:static;margin-top:4px;">Esc or P resumes · settings persist across matches</div>
@@ -249,6 +286,12 @@ body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-are
   <button id="btnRestart" class="diffRow" style="font-size:18px;padding:10px 40px;background:#3a4527;color:#fff;border:2px solid var(--gold);border-radius:6px;cursor:pointer;">PLAY AGAIN</button>
 </div>
 
+<div id="hintBox" class="hidden">
+  <div class="hintHead"><span>FIELD MANUAL</span><span class="hgrow"></span><span id="hintStep">1/6</span><button id="hintSkip" title="Dismiss for good">✕</button></div>
+  <div id="hintText"></div>
+  <div id="hintProg"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+</div>
+
 <div id="helpBox" class="hidden">
   <b>CONTROLS</b><br>
   Left-click / drag — select units · Shift adds<br>
@@ -258,6 +301,7 @@ body.mobile #helpBox{left:8px;right:8px;bottom:auto;top:calc(46px + env(safe-are
   Double-click a unit — select all of its type on screen<br>
   Arrow keys / screen edges / minimap — scroll camera<br>
   <b>P</b>/<b>Esc</b> pause menu · <b>M</b> mute · <b>F</b> jump to alert · <b>F3</b> fps · <b>H</b> close help<br>
+  <b>Command Powers</b> (under the minimap) — click when READY, then click a target<br>
   Build structures near your base. Harvesters collect 💰 from gold supply piles.
   Keep power ⚡ positive or production slows and defenses go offline (GLA needs no power).
   Destroy every enemy structure to win.
@@ -287,14 +331,16 @@ function mulberry32(seed){ let a=seed>>>0; return function(){ a|=0; a=a+0x6D2B79
    and share a voice budget (10/120ms). Non-positional (N) alerts bypass the budget
    but carry per-kind cooldowns so alarms can't spam. */
 let AC=null, muted=false, sfxBudget=10;
-let sfxGain=null, ambGain=null;                              // master buses
-const AUDIO={ vol:0.8, muted:false, announcer:false };       // persisted settings
-try{ const s=JSON.parse(localStorage.getItem('bg_audio')||'null'); if(s){ if(typeof s.vol==='number')AUDIO.vol=clamp(s.vol,0,1); AUDIO.muted=!!s.muted; AUDIO.announcer=!!s.announcer; muted=AUDIO.muted; } }catch(e){}
+let sfxGain=null, ambGain=null, musicGain=null, duckGain=null; // master buses (duck sits under sfx, music+ambient under duck)
+const AUDIO={ vol:0.8, muted:false, announcer:false, music:true };       // persisted settings
+try{ const s=JSON.parse(localStorage.getItem('bg_audio')||'null'); if(s){ if(typeof s.vol==='number')AUDIO.vol=clamp(s.vol,0,1); AUDIO.muted=!!s.muted; AUDIO.announcer=!!s.announcer; if(typeof s.music==='boolean')AUDIO.music=s.music; muted=AUDIO.muted; } }catch(e){}
 function saveAudio(){ try{ localStorage.setItem('bg_audio',JSON.stringify(AUDIO)); }catch(e){} }
 function audioInit(){
   if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}
     if(AC){ sfxGain=AC.createGain(); sfxGain.gain.value=AUDIO.vol; sfxGain.connect(AC.destination);
-            ambGain=AC.createGain(); ambGain.gain.value=0; ambGain.connect(sfxGain); } }
+            duckGain=AC.createGain(); duckGain.gain.value=1; duckGain.connect(sfxGain);      // WS-B1 alarm ducking
+            musicGain=AC.createGain(); musicGain.gain.value=0; musicGain.connect(duckGain);
+            ambGain=AC.createGain(); ambGain.gain.value=0; ambGain.connect(duckGain); } }
   if(AC&&AC.state==='suspended'){ try{AC.resume();}catch(e){} }
 }
 function setSfxVol(v){ AUDIO.vol=clamp(v,0,1); if(sfxGain) sfxGain.gain.value=AUDIO.vol; saveAudio(); }
@@ -349,9 +395,11 @@ const SND={
 };
 const WEAPON_SND={ bullet:'shoot', cannon:'cannon', rocket:'rocket', flame:'flame', sniper:'sniper', blast:'thump' };
 const FAC_PITCH={ USA:660, CHINA:520, GLA:440 };   // faction-pitched ready/ack/order chirps (SPEC rows 5–7)
+const DUCK_SND={alarmPower:1,alarmAttack:1,alarmSuper:1};   // WS-B1: EVA alarms duck music+ambient
 function sfx(kind,x,y,opt){
   if(muted||!AC) return;
   const spec=SND[kind]; if(!spec) return;
+  if(DUCK_SND[kind]) duck();
   const positional=(x!==undefined&&x!==null);
   let vol=1;
   if(positional){ vol=sfxVol(x,y); if(vol<=0) return;        // gate by field of view before spending budget
@@ -369,6 +417,7 @@ function announce(text){
   if(typeof speechSynthesis==='undefined'||!speechSynthesis) return;       // browser guard
   const now=(typeof performance!=='undefined'?performance.now():Date.now())/1000;
   if(now<_annCd) return; _annCd=now+3;                                     // 3s per-line cooldown
+  duck();                                                                  // WS-B1: EVA voice ducks the bed
   try{ const u=new SpeechSynthesisUtterance(text); u.volume=Math.min(1,AUDIO.vol+0.1); u.rate=0.95; u.pitch=0.85; speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(e){}
 }
 /* ---- ambient wind bed + battle-intensity sublayer (SPEC row 27) ---- */
@@ -394,6 +443,165 @@ function ambTick(dt){
   if(playing&&ambGain){ const base=0.015+_ambBattle*0.015; ambGain.gain.setTargetAtTime(muted?0:base,AC.currentTime,0.25); }
   else if(!playing) ambStop();
 }
+
+/* ================= MUSIC (WS-B1) =================
+   ZzFX v1.3.2 sound generator (Frank Force, github.com/KilledByAPixel/ZzFX) and
+   ZzFXM v2.0.3 song renderer (Keith Clark + Frank Force, github.com/keithclark/ZzFXM).
+   Both MIT licensed; pasted inline per the single-file rule. zzfxG below is the
+   library's buildSamples core with its own AudioContext/master-volume plumbing
+   removed — this game owns the audio graph (musicGain -> duckGain -> sfxGain). */
+const zzfxR=44100;
+function zzfxG(volume=1,randomness=.05,frequency=220,attack=0,sustain=0,release=.1,shape=0,shapeCurve=1,slide=0,deltaSlide=0,pitchJump=0,pitchJumpTime=0,repeatTime=0,noise=0,modulation=0,bitCrush=0,delay=0,sustainVolume=1,decay=0,tremolo=0,filter=0){
+  let PI2=Math.PI*2, sampleRate=zzfxR, abs=Math.abs, sign=v=>v<0?-1:1,
+    startSlide=slide*=500*PI2/sampleRate/sampleRate,
+    startFrequency=frequency*=(1+randomness*2*Math.random()-randomness)*PI2/sampleRate,
+    modOffset=0, repeat=0, crush=0, jump=1, length, b=[], t=0, i=0, s=0, f,
+    quality=2, w=PI2*abs(filter)*2/sampleRate, cos=Math.cos(w), alpha=Math.sin(w)/2/quality,
+    a0=1+alpha, a1=-2*cos/a0, a2=(1-alpha)/a0,
+    b0=(1+sign(filter)*cos)/2/a0, b1=-(sign(filter)+cos)/a0, b2=b0, x2=0, x1=0, y2=0, y1=0;
+  attack=attack*sampleRate||9; decay*=sampleRate; sustain*=sampleRate; release*=sampleRate; delay*=sampleRate;
+  deltaSlide*=500*PI2/sampleRate**3; modulation*=PI2/sampleRate; pitchJump*=PI2/sampleRate;
+  pitchJumpTime*=sampleRate; repeatTime=repeatTime*sampleRate|0;
+  for(length=attack+decay+sustain+release+delay|0; i<length; b[i++]=s*volume){
+    if(!(++crush%(bitCrush*100|0))){
+      s = shape? shape>1? shape>2? shape>3? shape>4?
+          (t/PI2%1<shapeCurve/2?1:-1) : Math.sin(t**3) : Math.max(Math.min(Math.tan(t),1),-1)
+          : 1-(2*t/PI2%2+2)%2 : 1-4*abs(Math.round(t/PI2)-t/PI2) : Math.sin(t);
+      s = (repeatTime? 1-tremolo+tremolo*Math.sin(PI2*i/repeatTime) : 1) *
+          (shape>4?s:sign(s)*abs(s)**shapeCurve) *
+          (i<attack? i/attack : i<attack+decay? 1-((i-attack)/decay)*(1-sustainVolume)
+           : i<attack+decay+sustain? sustainVolume
+           : i<length-delay? (length-i-delay)/release*sustainVolume : 0);
+      s = delay? s/2+(delay>i?0:(i<length-delay?1:(length-i)/delay)*b[i-delay|0]/2/volume) : s;
+      if(filter) s = y1 = b2*x2+b1*(x2=x1)+b0*(x1=s)-a2*y2-a1*(y2=y1);
+    }
+    f=(frequency+=slide+=deltaSlide)*Math.cos(modulation*modOffset++);
+    t+=f+f*noise*Math.sin(i**5);
+    if(jump&&++jump>pitchJumpTime){ frequency+=pitchJump; startFrequency+=pitchJump; jump=0; }
+    if(repeatTime&&!(++repeat%repeatTime)){ frequency=startFrequency; slide=startSlide; jump=jump||1; }
+  }
+  return b;
+}
+const zzfxM=(instruments,patterns,sequence,BPM=125)=>{
+  let instrumentParameters,i,j,k,note,sample,patternChannel,notFirstBeat,stop,instrument,
+    pitch,attenuation,outSampleOffset,isSequenceEnd,sampleOffset=0,nextSampleOffset,
+    sampleBuffer=[],leftChannelBuffer=[],rightChannelBuffer=[],channelIndex=0,panning=0,
+    hasMore=1,sampleCache={},beatLength=zzfxR/BPM*60>>2;
+  for(; hasMore; channelIndex++){
+    sampleBuffer=[hasMore=notFirstBeat=pitch=outSampleOffset=0];
+    sequence.map((patternIndex,sequenceIndex)=>{
+      patternChannel=patterns[patternIndex][channelIndex]||[0,0,0];
+      hasMore|=!!patterns[patternIndex][channelIndex];
+      nextSampleOffset=outSampleOffset+(patterns[patternIndex][0].length-2-!notFirstBeat)*beatLength;
+      isSequenceEnd=sequenceIndex==sequence.length-1;
+      for(i=2,k=outSampleOffset; i<patternChannel.length+isSequenceEnd; notFirstBeat=++i){
+        note=patternChannel[i];
+        stop = i==patternChannel.length+isSequenceEnd-1&&isSequenceEnd || instrument!=(patternChannel[0]||0)|note|0;
+        for(j=0; j<beatLength&&notFirstBeat; j++>beatLength-99&&stop?attenuation+=(attenuation<1)/99:0){
+          sample=(1-attenuation)*sampleBuffer[sampleOffset++]/2||0;
+          leftChannelBuffer[k]=(leftChannelBuffer[k]||0)-sample*panning+sample;
+          rightChannelBuffer[k]=(rightChannelBuffer[k++]||0)+sample*panning+sample;
+        }
+        if(note){
+          attenuation=note%1; panning=patternChannel[1]||0;
+          if(note|=0){
+            sampleBuffer=sampleCache[[instrument=patternChannel[sampleOffset=0]||0,note]]=
+              sampleCache[[instrument,note]]||(
+                instrumentParameters=[...instruments[instrument]],
+                instrumentParameters[2]*=2**((note-12)/12),
+                note>0?zzfxG(...instrumentParameters):[]);
+          }
+        }
+      }
+      outSampleOffset=nextSampleOffset;
+    });
+  }
+  return [leftChannelBuffer,rightChannelBuffer];
+};
+/* ---- the two loops. Note 12 = each instrument's own base frequency (A);
+   A minor scale: A12 B14 C15 D17 E19 F20 G22 A24. 32 steps = 2 bars of 4/4. ---- */
+const SONG_MENU=[
+ [ // instruments
+  [.7,0,110,.03,.85,.6,2,.15,0,0,0,0,0,0,0,0,.08,.55,.25,0,900],      // 0 drone bass (saw, LP)
+  [.5,0,220,.06,.2,.3,1,.6,0,0,0,0,0,.03,0,0,.1,.5,.12,.07,2600],     // 1 muted horn lead (tri)
+  [.45,0,300,0,.01,.09,4,1,0,0,0,0,0,3,0,0,0,.4,.03,0,0],             // 2 field snare (noise)
+ ],
+ [ // patterns: [instrument, pan, ...32 note steps]
+  [ [0,0, 12,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,  8,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0],
+    [1,0,  0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 24,0,0,0,22,0,0,0,20,0,0,0,19,0,0,0],
+    [2,0, 12,0,12,12,0,0,0,0, 12,0,12,12,0,0,0,0, 12,0,12,12,0,0,0,0, 12,0,12,12,0,0,0,0] ],
+  [ [0,0, 10,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,  7,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0],
+    [1,0, 19,0,0,0,20,0,0,0,19,0,0,0,15,0,0,0, 17,0,0,0,0,0,0,0, 12,0,0,0,0,0,0,0],
+    [2,0, 12,0,12,12,0,0,0,0, 12,0,12,12,0,0,0,0, 12,0,12,12,0,0,12,0, 12,0,12,12,0,0,0,0] ],
+ ],
+ [0,1], 90];
+const SONG_BATTLE=[
+ [ // instruments
+  [1.6,0,55,.005,.05,.16,0,1.2,-.5,0,0,0,0,.3,0,0,0,.5,.02,0,0],      // 0 kick
+  [.85,0,500,0,.02,.11,4,1,0,0,0,0,0,5,0,0,0,.35,.04,0,0],            // 1 snare
+  [.28,0,1400,0,0,.025,4,1,0,0,0,0,0,8,0,0,0,.2,0,0,0],               // 2 hat
+  [.75,0,110,.01,.06,.1,2,.25,0,0,0,0,0,0,0,0,0,.5,.03,0,1200],       // 3 bass
+  [.4,0,220,.02,.06,.22,2,.4,0,0,0,0,0,0,0,0,.06,.35,.09,0,2200],     // 4 brass stab
+ ],
+ [
+  [ [0,0, 12,0,0,0,0,0,12,0, 12,0,0,0,0,0,12,0, 12,0,0,0,0,0,12,0, 12,0,0,0,0,0,12,0],
+    [1,0,  0,0,0,0,12,0,0,0,  0,0,0,0,12,0,0,0,  0,0,0,0,12,0,0,0,  0,0,0,0,12,0,0,0],
+    [2,0, 12,0,12,0,12,0,12,0, 12,0,12,0,12,0,12,0, 12,0,12,0,12,0,12,0, 12,0,12,0,12,0,12,0],
+    [3,0, 12,0,12,0,12,0,12,0, 12,0,12,0,15,0,12,0, 12,0,12,0,12,0,12,0, 10,0,10,0,12,0,12,0],
+    [4,0, 24,0,0,0,0,0,0,0,  0,0,0,0,22,0,0,0, 20,0,0,0,0,0,0,0,  0,0,0,0,19,0,0,0] ],
+  [ [0,0, 12,0,0,0,0,0,12,0, 12,0,0,0,0,0,12,0, 12,0,0,0,0,0,12,0, 12,0,0,0,12,0,12,0],
+    [1,0,  0,0,0,0,12,0,0,0,  0,0,0,0,12,0,0,0,  0,0,0,0,12,0,0,0,  0,0,0,0,12,0,12,0],
+    [2,0, 12,0,12,0,12,0,12,0, 12,0,12,0,12,0,12,0, 12,0,12,0,12,0,12,0, 12,0,12,0,12,0,12,0],
+    [3,0,  8,0,8,0,8,0,8,0,   8,0,8,0,10,0,10,0,  10,0,10,0,10,0,10,0, 12,0,12,0,15,0,14,0],
+    [4,0, 20,0,0,0,0,0,0,0,  20,0,0,0,0,0,0,0,  22,0,0,0,0,0,0,0,  24,0,0,0,0,0,0,0] ],
+ ],
+ [0,1], 138];
+const SONGS={menu:SONG_MENU, battle:SONG_BATTLE};
+const MUSIC={menu:null, battle:null};            // rendered AudioBuffers (lazy, cached)
+const MUSIC_VOL=0.55;
+let _musicCur=null, _musicNode=null, _duckT=0, _musicTgt=-1;
+function songSteps(song){ let n=0; for(const p of song[2]) n+=song[1][p][0].length-2; return n; }
+function renderSong(name){
+  const song=SONGS[name], ch=zzfxM(song[0],song[1],song[2],song[3]);
+  const L=ch[0], R=ch[1], n=L.length;
+  const beat=zzfxR/song[3]*60>>2;
+  let peak=0; for(let i=0;i<n;i++){ const a=Math.abs(L[i]||0), b=Math.abs(R[i]||0); if(a>peak)peak=a; if(b>peak)peak=b; }
+  const k=peak>0?0.85/peak:1;
+  const buf=AC.createBuffer(2,n,zzfxR), dl=buf.getChannelData(0), dr=buf.getChannelData(1);
+  for(let i=0;i<n;i++){ dl[i]=(L[i]||0)*k; dr[i]=(R[i]||0)*k; }
+  // loop on the musical length, not the buffer length — zzfxM appends one extra beat of release tail
+  buf.loopSec=songSteps(song)*beat/zzfxR;
+  return buf;
+}
+function musicStop(){
+  if(!_musicNode) return;
+  const nd=_musicNode; _musicNode=null; _musicCur=null;
+  try{ const t=AC.currentTime; nd.g.gain.setTargetAtTime(0,t,0.25); nd.s.stop(t+1.2); }catch(e){}
+}
+function musicPlay(name){
+  if(!AC||!musicGain||_musicCur===name) return;
+  musicStop(); _musicCur=name;
+  const go=()=>{ const buf=MUSIC[name]; if(!buf||_musicCur!==name||!AC) return;
+    const g=AC.createGain(); g.gain.value=0; g.connect(musicGain);
+    const s=AC.createBufferSource(); s.buffer=buf; s.loop=true; s.loopStart=0; s.loopEnd=buf.loopSec;
+    s.connect(g); s.start(); g.gain.setTargetAtTime(1,AC.currentTime,0.4);
+    _musicNode={s,g}; };
+  if(MUSIC[name]) go();
+  // render off the click handler so the first note never stalls a frame
+  else setTimeout(()=>{ try{ MUSIC[name]=renderSong(name); }catch(e){ console.warn('music render failed',e); return; } go(); },0);
+}
+function musicTick(){
+  if(!AC||!musicGain) return;
+  const on=AUDIO.music&&!muted;
+  const want=on?(G.state==='play'?'battle':G.state==='menu'?'menu':null):null;
+  if(want!==_musicCur){ if(want) musicPlay(want); else musicStop(); }
+  const tgt=on?MUSIC_VOL:0;   // only schedule on change — this runs every frame
+  if(tgt!==_musicTgt){ _musicTgt=tgt; musicGain.gain.setTargetAtTime(tgt,AC.currentTime,0.2); }
+}
+function setMusic(on){ AUDIO.music=!!on; saveAudio(); musicTick(); }
+/* ---- alarm ducking: drop music+ambient to 50% for 2s, then restore ---- */
+function duck(){ if(!duckGain) return; _duckT=2; try{ duckGain.gain.cancelScheduledValues(AC.currentTime); duckGain.gain.setTargetAtTime(0.5,AC.currentTime,0.05); }catch(e){} }
+function duckTick(dt){ if(!duckGain||_duckT<=0) return; _duckT-=dt; if(_duckT<=0) try{ duckGain.gain.setTargetAtTime(1,AC.currentTime,0.6); }catch(e){} }
 
 /* ================= DAMAGE MODEL =================
    armor classes: inf, light, heavy, building (air handled via .air column + weapon aa flag) */
@@ -533,6 +741,57 @@ const DIFFS={
   hard:  {income:8, wave:7000, interval:70,  aiStart:8000, grace:120},
 };
 
+/* ================= WS-B2 GENERAL'S POWERS =================
+   ONE shared charge per side (not per building): the first charge lands at
+   POWER_FIRST_CD seconds and every cast makes the next wait POWER_CD_GROWTH× longer.
+   tg:'point' powers arm a targeting mode; tg:'self' powers fire on click. */
+const POWER_FIRST_CD=240, POWER_CD_GROWTH=1.25;
+const POWERS={
+USA:[
+ {k:'strike',n:'Precision Strike',i:'🎯',tg:'point',aoe:90,dmg:250,
+  d:'Missile volley — 250 damage across a 90 radius.'},
+ {k:'surgeons',n:'Field Surgeons',i:'➕',tg:'self',dur:10,pct:0.30,
+  d:'Every unit you own heals 30% of max HP over 10s.'},
+ {k:'paradrop',n:'Paradrop',i:'🪂',tg:'point',aoe:80,drop:[['ranger',3],['missile',2]],
+  d:'Drops 3 Troopers and 2 Lancers on the target.'},
+],
+CHINA:[
+ {k:'barrage',n:'Artillery Barrage',i:'💥',tg:'point',aoe:140,shells:12,dur:4,dmg:55,sAoe:45,
+  d:'12 shells over 4s across a 140 radius.'},
+ {k:'rally',n:'People’s Rally',i:'📣',tg:'self',dur:20,
+  d:'Horde bonus applies to every unit you own for 20s.'},
+ {k:'minefield',n:'Minefield',i:'💣',tg:'point',aoe:90,mines:8,dmg:160,mAoe:40,mR:26,
+  d:'Buries 8 mines that detonate under enemies.'},
+],
+GLA:[
+ {k:'ambush',n:'Ambush',i:'🐍',tg:'point',aoe:80,drop:[['rebel',4],['rpg',2]],
+  d:'4 Raiders and 2 Rocket Militia break cover at the target.'},
+ {k:'bounty',n:'Scrap Bounty',i:'💰',tg:'self',dur:25,mul:2,
+  d:'Salvage pays double for 25s.'},
+ {k:'tunnel',n:'Tunnel Strike',i:'🕳️',tg:'point',aoe:70,max:6,
+  d:'Teleports up to 6 selected units to any explored point.'},
+],
+};
+const POWER_LIST=o=>{ const f=facOf(o); return (f&&POWERS[f.key])||[]; };
+
+/* ================= WS-B4 AI PERSONALITIES =================
+   Style owns COMPOSITION and BEHAVIOUR (what it builds, what it targets, how big a
+   wave has to be). DIFFS still owns income / base wave value / cadence / grace, so
+   the two multiply and never overlap.
+   waveMul  ×diff.wave before a wave launches   techCushion ×the cash buffer kept back
+   rebuild  ×cushion for replacing lost structures (low = rebuilds fast)
+   src      per-producer pick weights           costBias 'elite' | 'cheap'
+   armorBias extra weight for ar:'heavy'        raid/retreat see aiTick */
+const AI_STYLE={
+  USA:  {name:'elite-air',    waveMul:0.75, techCushion:0.45, rebuild:1.0,  costBias:'elite', armorBias:0,   raid:0,    retreat:0,
+         src:{air:5, factory:2, barracks:1, supply:1, dozer:1}},
+  CHINA:{name:'mass-armor',   waveMul:2.0,  techCushion:1.7,  rebuild:1.15, costBias:'cheap', armorBias:2.2, raid:0,    retreat:0,
+         src:{air:0.5, factory:4, barracks:2.5, supply:1, dozer:1}},
+  GLA:  {name:'raid-rebuild', waveMul:0.85, techCushion:1.0,  rebuild:0.3,  costBias:'cheap', armorBias:0,   raid:0.75, retreat:0.6,
+         src:{air:0, factory:2.5, barracks:2.5, supply:1, dozer:1}},
+};
+const aiStyle=()=>AI_STYLE[(G.aFac&&G.aFac.key)||'USA']||AI_STYLE.USA;
+
 /* ================= DEBUG ================= */
 // multipliers apply to the PLAYER's units (owner 0); toggles are global cheats
 const DBG={dmg:1, rng:1, hp:1, fireRate:1, xpRate:1, god:false, reveal:false, spawnOwner:0, qty:1};
@@ -587,6 +846,9 @@ function unitCd(u){ return u.def.w.cd/(u.owner===0?DBG.fireRate:1); }
 // China units are within hordeRadius, u.horde=true grants +25% dmg / +10% speed.
 function hordeEligible(u){ return facOf(u.owner).key==='CHINA'&&u.def.w&&!u.def.harv&&!u.def.builder&&!u.air; }
 function recomputeHorde(u){
+  // WS-B2 People's Rally: while the buff runs, EVERY armed unit you own counts as massed
+  // (not just the ones physically bunched up, and not just the hordeEligible classes).
+  if(powerBuff(u.owner,'rally')>0&&u.def.w&&!u.def.harv){ u.horde=true; return; }
   if(!hordeEligible(u)){ u.horde=false; return; }
   // WS-6.4: query the per-tick spatial grid instead of scanning all units.
   // hordeRadius (160) > grid cell (40), so widen the neighbour search to cover it.
@@ -626,11 +888,17 @@ const G={
   sel:[], groups:{}, placing:null, amoveMode:false,
   cam:{x:0,y:0}, shake:0, mouse:{x:0,y:0,sx:0,sy:0,inside:true,seen:false}, drag:null,
   keys:{}, fogT:0, uiT:0, aiT:0, winT:0, sepT:0,
-  stats:{built:0,lost:0,kills:0,razed:0},
+  stats:{built:0,lost:0,kills:0,razed:0,dmg:0,earned:0},   // WS-B5: dmg = damage dealt to the enemy, earned = credits taken in
   ai:{nextWave:90, defendCD:0, perkCD:30},
   perks:{0:{weapons:0,armor:0,optics:0,drill:0}, 1:{weapons:0,armor:0,optics:0,drill:0}},
   upgrades:{warCollege:false},
+  // WS-B2 general's powers: per-owner charge + active buffs, plus the world objects
+  // powers leave behind (mines) and the timed effects they schedule (barrage).
+  powers:null, mines:[], powerFx:[], powerAim:null,
 };
+function newPowerState(){ return {t:POWER_FIRST_CD, casts:0, healRate:0, last:null, buff:{heal:0,rally:0,bounty:0}}; }
+function newPowers(){ return {0:newPowerState(), 1:newPowerState()}; }
+G.powers=newPowers();
 let nextId=1;
 function facOf(o){return o===0?G.pFac:G.aFac;}
 function moneyOf(o){return o===0?G.money:G.aiMoney;}
@@ -811,6 +1079,80 @@ function makeValueNoise(cell,seed){
     const i00=g[iy*gw+ix], i10=g[iy*gw+ix+1], i01=g[(iy+1)*gw+ix], i11=g[(iy+1)*gw+ix+1];
     const a=i00+(i10-i00)*tx, b=i01+(i11-i01)*tx; return a+(b-a)*ty; };
 }
+const _rgbOf=s=>{ const m=s.match(/(\d+),(\d+),(\d+)/); return m?[+m[1],+m[2],+m[3]]:[0,0,0]; };
+// WS-C4 tiling painted DETAIL texture. One 256px tile per biome, synthesized ONCE at
+// first use (multi-octave wrap-safe value noise + directional streaks + speckle grain,
+// biome-tinted) and then pattern-filled over the flat noise base so the ground stops
+// reading as vector colour. Wrap-safe = grid lookups are modulo, so the tile seams match.
+const DETAIL_TILES={};
+function detailTile(bi){
+  if(DETAIL_TILES[bi.key]) return DETAIL_TILES[bi.key];
+  const N=256, cv=document.createElement('canvas'); cv.width=N; cv.height=N; const c=cv.getContext('2d');
+  let sd=0; for(let i=0;i<bi.key.length;i++) sd=(sd*31+bi.key.charCodeAt(i))>>>0;
+  const rng=mulberry32(sd^0x5eed1234);
+  const oct=cell=>{ const gw=N/cell, g=new Float32Array(gw*gw); for(let i=0;i<g.length;i++) g[i]=rng();
+    const at=(a,b)=>g[((b%gw+gw)%gw)*gw+((a%gw+gw)%gw)];
+    const sm=t=>t*t*(3-2*t);
+    return (x,y)=>{ const fx=x/cell, fy=y/cell, ix=Math.floor(fx), iy=Math.floor(fy), tx=sm(fx-ix), ty=sm(fy-iy);
+      const a=at(ix,iy)+(at(ix+1,iy)-at(ix,iy))*tx, b=at(ix,iy+1)+(at(ix+1,iy+1)-at(ix,iy+1))*tx; return a+(b-a)*ty; }; };
+  const o=[oct(64),oct(32),oct(16),oct(8)], wgt=[0.42,0.27,0.19,0.12];
+  const cA=_rgbOf(bi.mottleA), cB=_rgbOf(bi.mottleB), cD=_rgbOf(bi.dune);
+  const id=c.createImageData(N,N), px=id.data;
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){ const i=(y*N+x)*4;
+    let v=0; for(let k=0;k<4;k++) v+=o[k](x,y)*wgt[k];
+    const d=v-0.5, col=d>0?cB:(d<-0.22?cD:cA), a=Math.min(0.62,Math.abs(d)*1.5);
+    px[i]=col[0]; px[i+1]=col[1]; px[i+2]=col[2]; px[i+3]=Math.round(a*255);
+  }
+  c.putImageData(id,0,0);
+  // directional streaks (wind-scoured drift lines), wrapped by drawing each line thrice
+  c.lineCap='butt';
+  for(let k=0;k<110;k++){
+    const y0=rng()*N, len=40+rng()*150, ang=(-0.30+rng()*0.16), light=rng()<0.5;
+    c.strokeStyle=(light?'rgba(255,246,222,':'rgba(38,28,16,')+(0.03+rng()*0.06).toFixed(3)+')';
+    c.lineWidth=0.7+rng()*2.2;
+    const x0=rng()*N, dx=Math.cos(ang)*len, dy=Math.sin(ang)*len;
+    for(const ox of [-N,0,N]) for(const oy of [-N,0,N]){ c.beginPath(); c.moveTo(x0+ox,y0+oy); c.lineTo(x0+dx+ox,y0+dy+oy); c.stroke(); }
+  }
+  // speckle grain (grit/pebbles) — kept off the seam so no wrap pass is needed
+  for(let k=0;k<2200;k++){
+    const x=2+rng()*(N-4), y=2+rng()*(N-4), r=0.4+rng()*1.3, light=rng()<0.42;
+    c.fillStyle=(light?'rgba(255,248,226,':'rgba(30,22,12,')+(0.05+rng()*0.13).toFixed(3)+')';
+    c.beginPath(); c.arc(x,y,r,0,TAU); c.fill();
+  }
+  return DETAIL_TILES[bi.key]=cv;
+}
+// WS-C4 scorch decal ring buffer — explosions write here, render() draws them under the
+// units and they fade out over SCORCH_LIFE seconds. Cap keeps the draw cost bounded.
+const SCORCH_CAP=120, SCORCH_LIFE=60;
+let scorch=[], scorchPtr=0, scorchSprite=null;
+function addScorch(x,y,r){
+  const d={x,y,r,t:SCORCH_LIFE,a:0.42+Math.min(0.22,r/220)};
+  if(scorch.length<SCORCH_CAP) scorch.push(d);
+  else { scorch[scorchPtr]=d; scorchPtr=(scorchPtr+1)%SCORCH_CAP; }
+}
+function scorchTex(){
+  if(scorchSprite) return scorchSprite;
+  const N=64, cv=document.createElement('canvas'); cv.width=N; cv.height=N; const c=cv.getContext('2d');
+  const g=c.createRadialGradient(N/2,N/2,1,N/2,N/2,N/2);
+  g.addColorStop(0,'rgba(16,12,8,0.95)'); g.addColorStop(0.45,'rgba(26,20,13,0.78)');
+  g.addColorStop(0.78,'rgba(38,29,18,0.34)'); g.addColorStop(1,'rgba(38,29,18,0)');
+  c.fillStyle=g; c.fillRect(0,0,N,N);
+  // a couple of irregular darker lobes so decals don't read as perfect circles
+  c.globalCompositeOperation='source-atop'; c.fillStyle='rgba(8,6,4,0.35)';
+  for(const [ax,ay,ar] of [[24,26,13],[40,36,10],[34,20,8]]){ c.beginPath(); c.arc(ax,ay,ar,0,TAU); c.fill(); }
+  return scorchSprite=cv;
+}
+function drawScorch(c){
+  if(!scorch.length) return;
+  const tex=scorchTex(), vw=viewW(), vh=viewH();
+  for(const d of scorch){
+    if(d.t<=0) continue;
+    if(d.x<G.cam.x-d.r||d.x>G.cam.x+vw+d.r||d.y<G.cam.y-d.r||d.y>G.cam.y+vh+d.r) continue;
+    c.globalAlpha=d.a*Math.min(1,d.t/(SCORCH_LIFE*0.45));
+    c.drawImage(tex,d.x-d.r,d.y-d.r,d.r*2,d.r*2);
+  }
+  c.globalAlpha=1;
+}
 function renderTerrain(){
   const bi=curBiome||BIOMES.desert;
   terrCanvas=document.createElement('canvas'); terrCanvas.width=WW; terrCanvas.height=WH;
@@ -838,42 +1180,77 @@ function renderTerrain(){
   }}
   nctx.putImageData(id,0,0);
   c.imageSmoothingEnabled=true; c.drawImage(nc,0,0,nw,nh,0,0,WW,WH);
-  // subtle grid
-  c.strokeStyle='rgba(0,0,0,.045)'; c.lineWidth=1; c.beginPath();
-  for(let x=0;x<=MW;x++){c.moveTo(x*TILE,0);c.lineTo(x*TILE,WH);} for(let y=0;y<=MH;y++){c.moveTo(0,y*TILE);c.lineTo(WW,y*TILE);} c.stroke();
-  // WS-2.1 roads: stamp carved corridors as packed-dirt strips with two faint wheel ruts.
-  c.lineCap='round';
-  for(const rd of roads){
-    c.strokeStyle=bi.road; c.globalAlpha=0.25; c.lineWidth=TILE*1.7;
-    c.beginPath(); c.moveTo(rd.x0,rd.y0); c.lineTo(rd.x1,rd.y1); c.stroke();
-    // two wheel ruts offset perpendicular to the road direction
-    const dx=rd.x1-rd.x0, dy=rd.y1-rd.y0, L=Math.hypot(dx,dy)||1, px=-dy/L, py=dx/L, off=TILE*0.42;
-    c.strokeStyle=bi.roadRut+'0.35)'; c.globalAlpha=0.35; c.lineWidth=2;
-    for(const s of [-1,1]){ c.beginPath(); c.moveTo(rd.x0+px*off*s,rd.y0+py*off*s); c.lineTo(rd.x1+px*off*s,rd.y1+py*off*s); c.stroke(); }
-    c.globalAlpha=1;
+  // WS-C4 painted detail texture: one 256px biome tile, pattern-filled at low alpha over
+  // the noise base. (WS-C4 also removed the old tile grid — it read as debug rendering.)
+  { const pat=c.createPattern(detailTile(bi),'repeat');
+    if(pat){ c.save(); c.globalAlpha=0.40; c.fillStyle=pat; c.fillRect(0,0,WW,WH); c.restore(); } }
+  // WS-C4 roads: soft-edged strips along the carved corridor, drawn as a jittered polyline
+  // (deterministic per segment) with three widening low-alpha passes instead of one hard
+  // stroke, faded out near both base centres so the five corridors no longer converge into
+  // dark rays radiating from the HQ. Road alpha is clipped out of building footprints.
+  {
+    const bcs=[{x:P_BASE.tx*TILE+TILE/2,y:P_BASE.ty*TILE+TILE/2},{x:A_BASE.tx*TILE+TILE/2,y:A_BASE.ty*TILE+TILE/2}];
+    const FIN=TILE*2.2, FOUT=TILE*7.5;
+    const fade=(x,y)=>{ let m=1; for(const b of bcs){ const d=Math.hypot(x-b.x,y-b.y); if(d<FOUT) m=Math.min(m,clamp((d-FIN)/(FOUT-FIN),0,1)); } return m; };
+    const polys=[];
+    for(const rd of roads){
+      const L=Math.hypot(rd.x1-rd.x0,rd.y1-rd.y0)||1, n=Math.max(6,Math.round(L/(TILE*0.9)));
+      const ux=(rd.x1-rd.x0)/L, uy=(rd.y1-rd.y0)/L, nx=-uy, ny=ux;
+      const jr=mulberry32((Math.round(rd.x0*7+rd.y0*13+L*3))>>>0);
+      let pts=[], j=0;
+      for(let i=0;i<=n;i++){ const t=i/n, env=Math.sin(t*Math.PI);   // no jitter at the anchored ends
+        j=j*0.72+(jr()*2-1)*TILE*0.30;
+        pts.push({x:rd.x0+ux*L*t+nx*j*env, y:rd.y0+uy*L*t+ny*j*env}); }
+      for(let s=0;s<3;s++){   // 3 smoothing passes -> a curved track, not a zigzag
+        const q=pts.slice();
+        for(let i=1;i<pts.length-1;i++) q[i]={x:(pts[i-1].x+2*pts[i].x+pts[i+1].x)/4, y:(pts[i-1].y+2*pts[i].y+pts[i+1].y)/4};
+        pts=q; }
+      polys.push(pts);
+    }
+    const foot=G.buildings.filter(b=>!b.dead&&!b.def.wall);
+    c.save(); c.lineCap='round'; c.lineJoin='round';
+    if(foot.length){ c.beginPath(); c.rect(0,0,WW,WH);
+      for(const b of foot) c.rect(b.tx*TILE-1,b.ty*TILE-1,b.size*TILE+2,b.size*TILE+2);
+      c.clip('evenodd'); }
+    for(const ps of [[22,0.07],[16,0.13],[10,0.11]]){       // soft shoulder -> ~14px packed core
+      c.strokeStyle=bi.road; c.lineWidth=ps[0];
+      for(const pts of polys) for(let i=1;i<pts.length;i++){
+        const a=pts[i-1], b=pts[i], f=Math.min(fade(a.x,a.y),fade(b.x,b.y));
+        if(f<=0.02) continue; c.globalAlpha=ps[1]*f;
+        c.beginPath(); c.moveTo(a.x,a.y); c.lineTo(b.x,b.y); c.stroke(); }
+    }
+    c.strokeStyle=bi.roadRut+'0.5)'; c.lineWidth=1.8;
+    for(const pts of polys) for(let i=1;i<pts.length;i++){
+      const a=pts[i-1], b=pts[i], f=Math.min(fade(a.x,a.y),fade(b.x,b.y)); if(f<=0.02) continue;
+      const dx=b.x-a.x, dy=b.y-a.y, L=Math.hypot(dx,dy)||1, px=-dy/L, py=dx/L;
+      c.globalAlpha=0.26*f;
+      for(const s of [-1,1]){ c.beginPath(); c.moveTo(a.x+px*4.6*s,a.y+py*4.6*s); c.lineTo(b.x+px*4.6*s,b.y+py*4.6*s); c.stroke(); }
+    }
+    c.restore();
   }
-  c.lineCap='butt';
   // WS-2.1 cliff/cluster rims: 2px dark rim + 1px north highlight on blocked-terrain clusters.
   // WS-C1: rims are for genuine multi-tile terrain clusters only — every blocked tile also
   // carries a decor sprite (tree/rock, see the decor-population loop above), so an ISOLATED
   // single-tile blocked spot (a size-1 cliff-walk remnant, or a lone rock) was rendering as a
   // full 4-sided box around one decor sprite ("boxed green circle" bug). Skip tiles with no
   // blocked neighbor in any of the 8 directions — a true cluster always has at least one.
+  // WS-C4: raised the bar from 1 to 3 blocked neighbours — a 2-3 tile scatter was still
+  // rendering as an axis-aligned box around a couple of tree sprites (reads as debug art).
   for(let ty=0;ty<MH;ty++)for(let tx=0;tx<MW;tx++){ if(terr[tIdx(tx,ty)]!==1) continue;
-    let hasClusterNbr=false;
-    for(let dy=-1;dy<=1&&!hasClusterNbr;dy++)for(let dx=-1;dx<=1;dx++){ if(!dx&&!dy) continue;
+    let nbrs=0;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){ if(!dx&&!dy) continue;
       const nx=tx+dx, ny=ty+dy; if(nx<0||ny<0||nx>=MW||ny>=MH) continue;
-      if(terr[tIdx(nx,ny)]===1){ hasClusterNbr=true; break; } }
-    if(!hasClusterNbr) continue;
+      if(terr[tIdx(nx,ny)]===1) nbrs++; }
+    if(nbrs<3) continue;
     const X=tx*TILE, Y=ty*TILE;
     const openN=ty===0||terr[tIdx(tx,ty-1)]!==1, openS=ty>=MH-1||terr[tIdx(tx,ty+1)]!==1;
     const openW=tx===0||terr[tIdx(tx-1,ty)]!==1, openE=tx>=MW-1||terr[tIdx(tx+1,ty)]!==1;
-    c.strokeStyle='rgba(0,0,0,.32)'; c.lineWidth=2; c.beginPath();
+    c.strokeStyle='rgba(0,0,0,.17)'; c.lineWidth=2; c.beginPath();   // WS-C4 softened: full-strength rims read as debug boxes
     if(openS){ c.moveTo(X,Y+TILE-1); c.lineTo(X+TILE,Y+TILE-1); }
     if(openW){ c.moveTo(X+1,Y); c.lineTo(X+1,Y+TILE); }
     if(openE){ c.moveTo(X+TILE-1,Y); c.lineTo(X+TILE-1,Y+TILE); }
     c.stroke();
-    if(openN){ c.strokeStyle='rgba(255,245,220,.22)'; c.lineWidth=1; c.beginPath(); c.moveTo(X,Y+0.5); c.lineTo(X+TILE,Y+0.5); c.stroke(); }
+    if(openN){ c.strokeStyle='rgba(255,245,220,.12)'; c.lineWidth=1; c.beginPath(); c.moveTo(X,Y+0.5); c.lineTo(X+TILE,Y+0.5); c.stroke(); }
   }
   for(const d of decor) drawDecor(c,d,bi);
   // WS-2.2 pre-render two shimmer frames for water (swapped every 0.8s at draw time)
@@ -900,33 +1277,66 @@ function drawDecor(c,d,bi){
     c.fillStyle=shade(bi.rockA,hj); c.beginPath(); c.moveTo(d.x-d.r,d.y+d.r*.6); c.lineTo(d.x-d.r*.3,d.y-d.r); c.lineTo(d.x+d.r*.7,d.y-d.r*.5); c.lineTo(d.x+d.r,d.y+d.r*.55); c.closePath(); c.fill();
     c.fillStyle=shade(bi.rockB,hj); c.beginPath(); c.moveTo(d.x-d.r*.3,d.y-d.r); c.lineTo(d.x+d.r*.7,d.y-d.r*.5); c.lineTo(d.x+d.r*.1,d.y+d.r*.2); c.closePath(); c.fill(); }
 }
-// WS-2.2 build two full-size water overlay canvases; only water tiles are painted, rest transparent.
+// WS-C4 water: ponds render as BLOBS, not per-tile rectangles. Each connected pond is
+// rasterised into a 1px-per-tile mask, upscaled twice with smoothing into a continuous
+// coverage field, then coloured by that field — feathered outer edge, lighter shore ring
+// just inside the boundary, deeper toward the middle. Nothing is axis-aligned to the tile
+// grid any more (the old flat-blue-squares bug). Two frames = cheap shimmer, swapped in
+// render(); the highlights are composited source-atop so they can only land on water.
 function buildWaterFrames(bi){
   waterFrames=[null,null];
   if(!waterTiles.length) return;
-  // set of water tiles for edge tests
   const isW=(tx,ty)=> inMap(tx,ty)&&terr[tIdx(tx,ty)]===3;
-  for(let f=0;f<2;f++){
-    const cv=document.createElement('canvas'); cv.width=WW; cv.height=WH; const c=cv.getContext('2d');
-    for(const w of waterTiles){ const X=w.tx*TILE, Y=w.ty*TILE;
-      // layered blue: deep base, mid fill, then shimmer highlights offset per-frame
-      c.fillStyle='#1f4a6b'; c.fillRect(X,Y,TILE,TILE);
-      c.fillStyle='#2f6d9c'; c.fillRect(X+1,Y+1,TILE-2,TILE-2);
-      c.fillStyle='rgba(120,180,220,'+(f===0?0.20:0.30)+')';
-      const sx=X+(f===0?4:TILE*0.45), sy=Y+(f===0?TILE*0.3:TILE*0.55);
-      c.beginPath(); c.ellipse(sx,sy,TILE*0.28,TILE*0.12,0.5,0,TAU); c.fill();
-      c.fillStyle='rgba(200,225,240,'+(f===0?0.16:0.10)+')';
-      c.fillRect(X+(f===0?TILE*0.5:TILE*0.15),Y+(f===0?TILE*0.6:TILE*0.25),TILE*0.28,2);
+  // connected ponds -> each blob is processed over its own small bbox (a whole-map
+  // ImageData would be 100MB+ on the large map)
+  const seen=new Set(), kk=(a,b)=>a+','+b, ponds=[];
+  for(const w of waterTiles){ if(seen.has(kk(w.tx,w.ty))) continue;
+    const q=[[w.tx,w.ty]], g=[]; seen.add(kk(w.tx,w.ty));
+    while(q.length){ const [x,y]=q.pop(); g.push([x,y]);
+      for(const nb of [[x+1,y],[x-1,y],[x,y+1],[x,y-1]])
+        if(isW(nb[0],nb[1])&&!seen.has(kk(nb[0],nb[1]))){ seen.add(kk(nb[0],nb[1])); q.push(nb); } }
+    ponds.push(g); }
+  const fr=[document.createElement('canvas'),document.createElement('canvas')];
+  const fc=[]; for(let f=0;f<2;f++){ fr[f].width=WW; fr[f].height=WH; fc[f]=fr[f].getContext('2d'); }
+  const SH=[110,142,150], MID=[47,109,156], DEEP=[26,66,98], PAD=2;
+  for(const g of ponds){
+    let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+    for(const p of g){ if(p[0]<x0)x0=p[0]; if(p[0]>x1)x1=p[0]; if(p[1]<y0)y0=p[1]; if(p[1]>y1)y1=p[1]; }
+    x0=Math.max(0,x0-PAD); y0=Math.max(0,y0-PAD); x1=Math.min(MW-1,x1+PAD); y1=Math.min(MH-1,y1+PAD);
+    const mw=x1-x0+1, mh=y1-y0+1;
+    const mk=document.createElement('canvas'); mk.width=mw; mk.height=mh;
+    const mkc=mk.getContext('2d'); mkc.fillStyle='#fff';
+    for(const p of g) mkc.fillRect(p[0]-x0,p[1]-y0,1,1);
+    const s1=document.createElement('canvas'); s1.width=mw*4; s1.height=mh*4;
+    const s1c=s1.getContext('2d'); s1c.imageSmoothingEnabled=true; s1c.imageSmoothingQuality='high';
+    s1c.drawImage(mk,0,0,s1.width,s1.height);
+    const pw=mw*TILE, ph=mh*TILE;
+    const s2=document.createElement('canvas'); s2.width=pw; s2.height=ph;
+    const s2c=s2.getContext('2d'); s2c.imageSmoothingEnabled=true; s2c.imageSmoothingQuality='high';
+    s2c.drawImage(s1,0,0,pw,ph);
+    const src=s2c.getImageData(0,0,pw,ph).data;
+    const out=fc[0].createImageData(pw,ph), d=out.data;
+    for(let i=0,n=pw*ph;i<n;i++){
+      const v=src[i*4+3]/255, o=i*4;
+      if(v<=0.40){ d[o+3]=0; continue; }
+      let col,t;
+      if(v<0.50){ col=SH; t=-1; }                                             // feathered wet fringe
+      else if(v<0.61){ t=(v-0.50)/0.11; col=[SH[0]+(MID[0]-SH[0])*t,SH[1]+(MID[1]-SH[1])*t,SH[2]+(MID[2]-SH[2])*t]; }
+      else { t=Math.min(1,(v-0.61)/0.25); col=[MID[0]+(DEEP[0]-MID[0])*t,MID[1]+(DEEP[1]-MID[1])*t,MID[2]+(DEEP[2]-MID[2])*t]; }
+      d[o]=col[0]|0; d[o+1]=col[1]|0; d[o+2]=col[2]|0;
+      d[o+3]=Math.round(255*(v<0.50?clamp((v-0.40)/0.10,0,1):1));
     }
-    // dark shoreline rim on tiles adjacent to land
-    c.strokeStyle='rgba(10,30,45,.5)'; c.lineWidth=2;
-    for(const w of waterTiles){ const X=w.tx*TILE, Y=w.ty*TILE; c.beginPath();
-      if(!isW(w.tx,w.ty-1)){ c.moveTo(X,Y+1); c.lineTo(X+TILE,Y+1); }
-      if(!isW(w.tx,w.ty+1)){ c.moveTo(X,Y+TILE-1); c.lineTo(X+TILE,Y+TILE-1); }
-      if(!isW(w.tx-1,w.ty)){ c.moveTo(X+1,Y); c.lineTo(X+1,Y+TILE); }
-      if(!isW(w.tx+1,w.ty)){ c.moveTo(X+TILE-1,Y); c.lineTo(X+TILE-1,Y+TILE); }
-      c.stroke(); }
-    waterFrames[f]=cv;
+    for(let f=0;f<2;f++) fc[f].putImageData(out,x0*TILE,y0*TILE);
+  }
+  for(let f=0;f<2;f++){
+    const c=fc[f]; c.save(); c.globalCompositeOperation='source-atop';
+    for(const g of ponds) for(const p of g){ const X=p[0]*TILE, Y=p[1]*TILE;
+      c.fillStyle='rgba(150,202,232,'+(f===0?0.14:0.09)+')';
+      c.beginPath(); c.ellipse(X+(f===0?13:27),Y+(f===0?15:27),13,4.6,0.5,0,TAU); c.fill();
+      c.fillStyle='rgba(216,236,248,'+(f===0?0.09:0.14)+')';
+      c.beginPath(); c.ellipse(X+(f===0?28:12),Y+(f===0?29:13),8,2.6,-0.4,0,TAU); c.fill(); }
+    c.restore();
+    waterFrames[f]=fr[f];
   }
 }
 
@@ -1028,7 +1438,7 @@ function createUnit(owner,def,x,y){
 function createBuilding(owner,def,tx,ty,instant){
   const b={id:nextId++,kind:'building',owner,def,tx,ty,size:def.size,
     x:(tx+def.size/2)*TILE,y:(ty+def.size/2)*TILE,r:def.size*TILE/2,
-    hp:instant?def.hp:def.hp*0.1,maxHp:def.hp,armor:'building',air:false,
+    hp:instant?def.hp:def.hp*0.1,maxHp:def.hp,dmg:0,armor:'building',air:false,   // dmg = battle damage taken while under construction (WS-D2)
     done:!!instant,prog:instant?def.t:0,queue:[],qProg:0,cd:0,scanT:rand(0,.3),turret:0,tmpTg:null,
     superT:def.super?def.super.cd:0, garrison:[],
     rally:{x:(tx+def.size/2)*TILE,y:(ty+def.size)*TILE+50},flash:0,dead:false};
@@ -1040,6 +1450,15 @@ function freeBuildingTiles(b){
   for(let y=0;y<b.size;y++)for(let x=0;x<b.size;x++){ const tx=b.tx+x,ty=b.ty+y; if(inMap(tx,ty)) blockGrid[tIdx(tx,ty)]=terr[tIdx(tx,ty)]; }
 }
 function myBuildings(o,k){ return G.buildings.filter(b=>b.owner===o&&!b.dead&&(!k||b.def.k===k)); }
+// WS-D6: strike-target pool for AI superweapons / attack waves. Walls are $60 filler —
+// never worth a 95s nuke cooldown or a whole wave. Prefer cost>=200 structures; fall
+// back to any non-wall building, then (last resort) anything at all.
+const STRIKE_MIN_COST=200;
+function strikeTargets(o){
+  const all=myBuildings(o), solid=all.filter(b=>!b.def.wall);
+  const high=solid.filter(b=>(b.def.cost||0)>=STRIKE_MIN_COST);
+  return high.length?high:(solid.length?solid:all);
+}
 function hasDone(o,k){ return G.buildings.some(b=>b.owner===o&&!b.dead&&b.done&&b.def.k===k); }
 function powerOf(o){
   let prod=0,used=0;
@@ -1059,7 +1478,12 @@ function dealDamage(e,raw,wtype,srcEnt){
   if(e.dead) return;
   if(DBG.god&&e.owner===0) return;   // debug: player units invulnerable
   const mult=e.air?DMG[wtype].air:DMG[wtype][e.armor];
-  e.hp-=raw*mult*rand(.85,1.15); e.flash=.12;
+  const amt=raw*mult*rand(.85,1.15);
+  if(srcEnt&&srcEnt.owner===0&&e.owner!==0) G.stats.dmg+=Math.min(amt,Math.max(0,e.hp));  // WS-B5 tally, overkill not counted
+  e.hp-=amt; e.flash=.12;
+  // WS-D2: updateBuild rewrites an unfinished site's hp from build progress every tick,
+  // so battle damage has to be banked separately or a site under fire is immortal.
+  if(e.kind==='building'&&!e.done) e.dmg=(e.dmg||0)+amt;
   if(e.kind==='unit') e.lastCombatT=G.time;                 // taking damage resets USA idle-heal timer
   if(srcEnt&&srcEnt.kind==='unit'&&!srcEnt.dead) srcEnt.lastCombatT=G.time; // dealing damage too
   if(e.hp<=0){ killEnt(e,srcEnt); return; }
@@ -1086,9 +1510,10 @@ function killEnt(e,srcEnt){
   // ---- Faction signature mechanics (SPEC §1) ----
   // GLA Salvage: a GLA-owned unit that destroys an enemy banks 15% of its cost (cap $400).
   if(srcEnt&&srcEnt.kind==='unit'&&!srcEnt.dead&&facOf(srcEnt.owner).key==='GLA'&&e.owner!==srcEnt.owner&&e.def&&e.def.cost){
-    const scrap=Math.min(FACTION_MODS.GLA.salvageCap,Math.round(e.def.cost*FACTION_MODS.GLA.salvagePct));
+    const bm=powerBuff(srcEnt.owner,'bounty')>0?2:1;   // WS-B2 Scrap Bounty doubles pay AND cap
+    const scrap=Math.min(FACTION_MODS.GLA.salvageCap*bm,Math.round(e.def.cost*FACTION_MODS.GLA.salvagePct*bm));
     if(scrap>0){ addMoney(srcEnt.owner,scrap);
-      if(srcEnt.owner===0){ sfx('scrap',srcEnt.x,srcEnt.y); G.parts.push({type:'text',x:e.x,y:e.y-14,txt:'+$'+scrap+' scrap',life:1.1,maxLife:1.1}); } }
+      if(srcEnt.owner===0){ sfx('scrap',srcEnt.x,srcEnt.y); G.stats.earned+=scrap; G.parts.push({type:'text',x:e.x,y:e.y-14,txt:'+$'+scrap+' scrap',life:1.1,maxLife:1.1}); } }
   }
   // China Reactor explosion: a destroyed China power building detonates, hitting EVERYONE (owner -1 = nobody skipped).
   if(e.kind==='building'&&e.def&&e.def.k==='power'&&e.def._fac==='CHINA'){
@@ -1219,13 +1644,33 @@ function fire(src,tg){
   const mx=src.x+Math.cos(fdir)*barrel;
   const my=src.y+Math.sin(fdir)*barrel;
   sfx(WEAPON_SND[w.type]||'shoot',src.x,src.y);   // distinct synth per weapon type, FOV-gated inside sfx()
-  G.parts.push({type:'flash',x:mx,y:my,life:.06,maxLife:.06,size:7,color:'#ffe9a0'});
+  // WS-C7 muzzle flash at the barrel tip + short bright tracer, scaled by weapon type.
+  // All of it is skipped when the shot happens off-screen or the particle pool is full.
+  const heavy=(w.type==='cannon'||w.type==='blast'), rock=(w.type==='rocket');
+  const tgd=Math.atan2(tg.y-my,tg.x-mx);
+  const seen=fxOn(mx,my)&&G.parts.length<PART_CAP-12;
+  if(seen){
+    const fs=heavy?13:rock?10:(w.type==='flame'?9:6.5);
+    G.parts.push({type:'flash',x:mx,y:my,life:.07,maxLife:.07,size:fs,color:heavy?'#fff2c8':'#ffe9a0'});
+    if(heavy||rock) G.parts.push({type:'flash',x:mx+Math.cos(fdir)*fs*0.45,y:my+Math.sin(fdir)*fs*0.45,life:.05,maxLife:.05,size:fs*0.55,color:'#ffb448'});
+    if(heavy) for(let i=0;i<3;i++){ const a=fdir+rand(-0.5,0.5), v=rand(40,110);
+      G.parts.push({type:'spark',x:mx,y:my,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.08,.18),maxLife:.18,color:'#ffcf70'}); }
+    if(rock||w.type==='flame') G.parts.push({type:'smoke',x:mx-Math.cos(fdir)*6,y:my-Math.sin(fdir)*6,vx:rand(-8,8),vy:rand(-14,-3),life:.45,maxLife:.45,size:rand(3,6),color:'#7a7268'});
+  }
   if(!w.sp){ // instant hit
-    G.parts.push({type:'tracer',x:mx,y:my,x2:tg.x+rand(-4,4),y2:tg.y+rand(-4,4),life:.06,maxLife:.06,color:w.type==='flame'?'#ff8830':'#ffe9a0'});
-    if(w.type==='flame'){ for(let i=0;i<3;i++) G.parts.push({type:'flame',x:tg.x+rand(-10,10),y:tg.y+rand(-10,10),vx:rand(-15,15),vy:rand(-25,-5),life:rand(.25,.5),maxLife:.5,size:rand(6,11)}); }
+    if(seen){
+      G.parts.push({type:'tracer',x:mx,y:my,x2:tg.x+rand(-4,4),y2:tg.y+rand(-4,4),life:.07,maxLife:.07,
+        w:heavy?3.2:(w.type==='sniper'?1.2:1.9),color:w.type==='flame'?'#ff8830':'#e8bc60'});
+      if(w.type==='flame'){ for(let i=0;i<3;i++) G.parts.push({type:'flame',x:tg.x+rand(-10,10),y:tg.y+rand(-10,10),vx:rand(-15,15),vy:rand(-25,-5),life:rand(.25,.5),maxLife:.5,size:rand(6,11)}); }
+      else { for(let i=0;i<3;i++){ const a=tgd+Math.PI+rand(-1,1), v=rand(25,80);   // impact sparks at the hit point
+        G.parts.push({type:'spark',x:tg.x,y:tg.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.12,.28),maxLife:.28,color:'#ffd070'}); }
+        G.parts.push({type:'flash',x:tg.x,y:tg.y,life:.07,maxLife:.07,size:4.5,color:'#ffd9a0'}); }
+    }
     if(w.aoe) splashDamage(tg.x,tg.y,ew,src.owner,src);
     else dealDamage(tg,ew.dmg,w.type,src);
   } else {
+    // travelling shot: a short muzzle-side tracer streak so the launch still reads
+    if(seen) G.parts.push({type:'tracer',x:mx,y:my,x2:mx+Math.cos(tgd)*26,y2:my+Math.sin(tgd)*26,life:.05,maxLife:.05,w:heavy?3:2,color:'#ffe9a0'});
     G.projs.push({x:mx,y:my,tg,tx:tg.x,ty:tg.y,w:ew,owner:src.owner,src,homing:!w.aoe,life:6,trail:w.type==='rocket'||w.type==='blast'||!!w.aoe});
   }
 }
@@ -1247,7 +1692,7 @@ function updateHarvester(u,dt){
     const d=eDist(u,u.depot)-u.depot.r;
     if(!u.dest&&d>=34) setMove(u,u.depot.x,u.depot.y+u.depot.r+14);
     if(d<34){ addMoney(u.owner,u.carry);
-      if(u.owner===0){ sfx('cash'); G.parts.push({type:'text',x:u.x,y:u.y-18,txt:'+$'+u.carry,life:1,maxLife:1}); }
+      if(u.owner===0){ sfx('cash'); G.stats.earned+=u.carry; G.parts.push({type:'text',x:u.x,y:u.y-18,txt:'+$'+u.carry,life:1,maxLife:1}); }
       u.carry=0; u.hphase='go'; u.node=null; return; }
     stepPath(u,dt); return;
   }
@@ -1365,19 +1810,19 @@ function updateBuilding(b,dt){
   const rate=lowPower(b.owner)?(facOf(b.owner).key==='USA'?FACTION_MODS.USA.lowPowerRate:0.5):1;
   if(!b.done){
     // construction is driven by a dozer working the site (see updateBuild); just watch for completion
-    if(b.prog>=b.def.t){ b.done=true; b.hp=Math.min(b.maxHp,Math.max(b.hp,b.maxHp));
+    if(b.prog>=b.def.t){ b.done=true; b.hp=clamp(b.maxHp-(b.dmg||0),1,b.maxHp); b.dmg=0;   // WS-D2: completion no longer full-heals a shot-up site
       if(b.owner===0){ sfx('built'); announce('construction complete'); }   // row 4
       if(b.def.k==='training'&&b.owner===0&&facOf(0).key==='USA') G.upgrades.warCollege=true;
       if(b.def.super) onSuperBuilt(b);
     }
     return;
   }
-  if(b.def.income) addMoney(b.owner,b.def.income*dt);
+  if(b.def.income){ addMoney(b.owner,b.def.income*dt); if(b.owner===0) G.stats.earned+=b.def.income*dt; }
   if(b.done&&b.hp<b.maxHp*0.5&&Math.random()<dt*(b.hp<b.maxHp*0.25?5:2)) G.parts.push({type:'smoke',x:b.x+rand(-b.r*0.4,b.r*0.4),y:b.y-rand(0,b.r*0.4),vx:rand(-5,5),vy:rand(-16,-7),life:rand(.8,1.7),maxLife:1.7,size:rand(4,9),color:'#3a3a3a'});
   // superweapon: charge up; the AI fires automatically at the player's base when ready
   if(b.def.super){
     if(b.superT>0) b.superT=Math.max(0,b.superT-dt*rate);
-    else if(b.owner===1){ const tg=pick(myBuildings(0)); if(tg) fireSuper(b,tg.x+rand(-60,60),tg.y+rand(-60,60)); }
+    else if(b.owner===1){ const pool=strikeTargets(0), tg=pool.length?pick(pool):null; if(tg) fireSuper(b,tg.x+rand(-60,60),tg.y+rand(-60,60)); }   // WS-D6
   }
   if(b.queue.length){
     b.qProg+=dt*rate;
@@ -1438,6 +1883,131 @@ function onSuperBuilt(b){      // alert all players when a superweapon comes onl
   else { setBanner('WARNING — ENEMY '+sp.label+' DETECTED','#ff5050'); if(G.pings.length<8) G.pings.push({x:b.x,y:b.y,t:3});
     sfx('alarmSuper'); announce('superweapon detected'); }   // ominous enemy-super alert (row 22)
 }
+
+/* ================= WS-B2 GENERAL'S POWERS — engine =================
+   The charge lives on the OWNER (G.powers[o]), not on a structure, so a power is
+   available as long as you have a base. Cast order: castPower() gates + bills the
+   charge, applyPower() does the actual work and may refuse (returns false = no charge
+   spent, e.g. Tunnel Strike with nothing selected). */
+function powerReady(o){ const p=G.powers&&G.powers[o]; return !!p&&p.t<=0; }
+function powerNextCd(casts){ return POWER_FIRST_CD*Math.pow(POWER_CD_GROWTH,casts); }
+function powerFind(o,k){ return POWER_LIST(o).find(p=>p.k===k)||null; }
+function powerBuff(o,k){ const p=G.powers&&G.powers[o]; return (p&&p.buff&&p.buff[k])||0; }
+function castPower(owner,key,x,y,sel){
+  const ps=G.powers&&G.powers[owner]; if(!ps||ps.t>0) return false;
+  const P=powerFind(owner,key); if(!P) return false;
+  if(P.tg==='point'){
+    if(!isFinite(x)||!isFinite(y)||x<0||y<0||x>WW||y>WH) return false;
+    if(P.k==='tunnel'&&owner===0&&!tileExplored(x,y)) return false;   // fog is the player's only
+  }
+  if(!applyPower(owner,P,x,y,sel)) return false;
+  ps.casts++; ps.t=powerNextCd(ps.casts); ps.last=P.k;
+  if(owner===0){ setBanner(P.n.toUpperCase(),'#ffe14d'); sfx('superFire'); }
+  else { setBanner('ENEMY '+P.n.toUpperCase(),'#ff5050'); sfx('alarmSuper');
+    if(P.tg==='point'&&G.pings.length<8) G.pings.push({x,y,t:2.5}); }
+  updatePowerBar();
+  return true;
+}
+function applyPower(owner,P,x,y,sel){
+  const fac=facOf(owner);
+  switch(P.k){
+    case 'strike':{                                   // Coalition: one heavy missile volley
+      splashDamage(x,y,{type:'rocket',dmg:P.dmg,aoe:P.aoe},owner,null);
+      explosion(x,y,P.aoe*0.8);
+      for(let i=0;i<5;i++){ const a=rand(0,TAU),r=rand(10,P.aoe*0.8); explosion(x+Math.cos(a)*r,y+Math.sin(a)*r,rand(20,36)); }
+      G.shake=Math.min(12,G.shake+7);
+      G.parts.push({type:'ring',x,y,life:.7,maxLife:.7,size:P.aoe*1.6,color:'#cfe4ff'});
+      return true; }
+    case 'barrage':                                   // Pact: 12 shells walked over 4s
+      G.powerFx.push({k:'barrage',owner,x,y,left:P.shells,step:P.dur/P.shells,t:0,rad:P.aoe,dmg:P.dmg,aoe:P.sAoe});
+      return true;
+    case 'surgeons':                                  // Coalition: army-wide heal-over-time
+      G.powers[owner].buff.heal=P.dur; G.powers[owner].healRate=P.pct/P.dur; return true;
+    case 'rally':   G.powers[owner].buff.rally=P.dur;  return true;   // Pact: horde bonus everywhere
+    case 'bounty':  G.powers[owner].buff.bounty=P.dur; return true;   // Syndicate: 2× salvage
+    case 'paradrop': case 'ambush':{                   // reinforcements at the target
+      let n=0;
+      for(const [k,cnt] of (P.drop||[])){ const def=fac.units.find(u=>u.k===k); if(!def) continue;
+        for(let i=0;i<cnt;i++){
+          const a=rand(0,TAU), r=Math.sqrt(Math.random())*P.aoe*0.8;
+          const sp=clearWorldSpawn(clamp(x+Math.cos(a)*r,TILE,WW-TILE),clamp(y+Math.sin(a)*r,TILE,WH-TILE));
+          const u=createUnit(owner,def,sp.x,sp.y);
+          u.order={t:'amove',x:sp.x,y:sp.y}; u.ax=u.x; u.ay=u.y; n++;
+          G.parts.push({type:'ring',x:sp.x,y:sp.y,life:.55,maxLife:.55,size:26,color:'#d8dcc8'});
+        } }
+      return n>0; }
+    case 'minefield':{                                 // Pact: buried, one-shot, own side immune
+      for(let i=0;i<P.mines;i++){ const a=rand(0,TAU), r=Math.sqrt(Math.random())*P.aoe;
+        G.mines.push({owner,x:clamp(x+Math.cos(a)*r,8,WW-8),y:clamp(y+Math.sin(a)*r,8,WH-8),
+          r:P.mR,dmg:P.dmg,aoe:P.mAoe,arm:MINE_ARM}); }
+      G.parts.push({type:'ring',x,y,life:.6,maxLife:.6,size:P.aoe*1.8,color:'#e0524f'});
+      return true; }
+    case 'tunnel':{                                    // Syndicate: relocate the strike group
+      let list=(sel||[]).filter(e=>e&&e.kind==='unit'&&!e.dead&&e.owner===owner);
+      if(!list.length) return false;
+      list=list.slice(0,P.max||6);
+      for(const u of list){
+        G.parts.push({type:'ring',x:u.x,y:u.y,life:.5,maxLife:.5,size:22,color:'#b5a642'});
+        const a=rand(0,TAU), r=Math.sqrt(Math.random())*P.aoe;
+        const sp=clearWorldSpawn(clamp(x+Math.cos(a)*r,TILE,WW-TILE),clamp(y+Math.sin(a)*r,TILE,WH-TILE));
+        u.x=sp.x; u.y=sp.y; u.ax=u.x; u.ay=u.y; u.dest=null; u.path=null; u.pi=0; u.tmpTg=null;
+        if(u.order.t==='move'||u.order.t==='amove') u.order={t:'idle'};
+        G.parts.push({type:'ring',x:u.x,y:u.y,life:.5,maxLife:.5,size:22,color:'#ffd455'});
+      }
+      return true; }
+  }
+  return false;
+}
+const MINE_ARM=1.0;   // seconds before a fresh mine can trigger (stops self-clearing on cast)
+function updateMines(dt){
+  if(!G.mines.length) return;
+  let blown=false;
+  for(const m of G.mines){
+    if(m.dead) continue;
+    if(m.arm>0){ m.arm-=dt; continue; }
+    for(const u of G.units){
+      if(u.dead||u.owner===m.owner||u.air) continue;
+      if(dist2(u.x,u.y,m.x,m.y)<m.r){
+        m.dead=true; blown=true;
+        explosion(m.x,m.y,m.aoe*0.8);
+        splashDamage(m.x,m.y,{type:'blast',dmg:m.dmg,aoe:m.aoe},m.owner,null);
+        break;
+      }
+    }
+  }
+  if(blown) G.mines=G.mines.filter(m=>!m.dead);
+}
+function updatePowerFx(dt){
+  if(!G.powerFx.length) return;
+  for(const f of G.powerFx){
+    if(f.k!=='barrage'){ f.dead=true; continue; }
+    f.t-=dt;
+    while(f.left>0&&f.t<=0){
+      f.t+=f.step; f.left--;
+      const a=rand(0,TAU), r=Math.sqrt(Math.random())*f.rad;
+      const sx=clamp(f.x+Math.cos(a)*r,8,WW-8), sy=clamp(f.y+Math.sin(a)*r,8,WH-8);
+      splashDamage(sx,sy,{type:'blast',dmg:f.dmg,aoe:f.aoe},f.owner,null);
+      explosion(sx,sy,f.aoe*0.75);
+    }
+    if(f.left<=0) f.dead=true;
+  }
+  G.powerFx=G.powerFx.filter(f=>!f.dead);
+}
+function powerTick(dt){
+  for(const o of [0,1]){
+    const ps=G.powers&&G.powers[o]; if(!ps) continue;
+    if(ps.t>0){ const was=ps.t; ps.t=Math.max(0,ps.t-dt);
+      if(ps.t<=0&&was>0&&o===0){ sfx('superReady'); setBanner('COMMAND POWER READY','#ffe14d'); } }
+    const bf=ps.buff;
+    if(bf.heal>0){ bf.heal=Math.max(0,bf.heal-dt);
+      const rate=ps.healRate||0.03;
+      for(const u of G.units) if(u.owner===o&&!u.dead&&u.hp<u.maxHp){
+        u.hp=Math.min(u.maxHp,u.hp+u.maxHp*rate*dt); u._healing=true; } }
+    if(bf.rally>0) bf.rally=Math.max(0,bf.rally-dt);
+    if(bf.bounty>0) bf.bounty=Math.max(0,bf.bounty-dt);
+  }
+  updateMines(dt); updatePowerFx(dt);
+}
 /* ---- projectiles / particles ---- */
 function updateProj(p,dt){
   if(p.homing&&p.tg&&!p.tg.dead){ p.tx=p.tg.x; p.ty=p.tg.y; }
@@ -1446,28 +2016,53 @@ function updateProj(p,dt){
   if(dd<=step+6||p.life<=0){
     p.x=p.tx; p.y=p.ty; p.dead=true;
     if(p.w.aoe){ explosion(p.x,p.y,p.w.aoe*.7); splashDamage(p.x,p.y,p.w,p.owner,p.src&&!p.src.dead?p.src:null); }
-    else if(p.tg&&!p.tg.dead) { dealDamage(p.tg,p.w.dmg,p.w.type,p.src&&!p.src.dead?p.src:null); G.parts.push({type:'flash',x:p.x,y:p.y,life:.08,maxLife:.08,size:9,color:'#ffd080'}); }
+    else if(p.tg&&!p.tg.dead) { dealDamage(p.tg,p.w.dmg,p.w.type,p.src&&!p.src.dead?p.src:null);
+      if(fxOn(p.x,p.y)&&G.parts.length<PART_CAP-6){   // WS-C7 impact sparks at the hit point
+        G.parts.push({type:'flash',x:p.x,y:p.y,life:.08,maxLife:.08,size:9,color:'#ffd080'});
+        for(let i=0;i<4;i++){ const a=rand(0,TAU), v=rand(35,110);
+          G.parts.push({type:'spark',x:p.x,y:p.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.12,.3),maxLife:.3,color:'#ffc95e'}); } } }
     return;
   }
   p.x+=dx/dd*step; p.y+=dy/dd*step;
   if(p.trail&&Math.random()<dt*30) G.parts.push({type:'smoke',x:p.x,y:p.y,vx:rand(-6,6),vy:rand(-6,6),life:.5,maxLife:.5,size:rand(3,6)});
 }
+// WS-C7 FX budget helper: cosmetic spawns are skipped entirely for off-screen events.
+function fxOn(x,y){ const m=140; return x>G.cam.x-m&&x<G.cam.x+viewW()+m&&y>G.cam.y-m&&y<G.cam.y+viewH()+m; }
+// WS-C7 layered explosion: fireball (3 stacked flashes on different decays) + sparks +
+// tumbling debris shards + a rising oily smoke column. Big blasts also stamp a WS-C4
+// scorch decal and add a capped 2px camera shake.
 function explosion(x,y,size){
-  G.parts.push({type:'flash',x,y,life:.15,maxLife:.15,size:size,color:'#fff3c0'});
-  G.parts.push({type:'ring',x,y,life:.3,maxLife:.3,size:size*1.3});
-  for(let i=0;i<Math.min(14,4+size/4);i++){ const a=rand(0,TAU),v=rand(30,140);
-    G.parts.push({type:'spark',x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.2,.5),maxLife:.5,color:Math.random()<.5?'#ffb340':'#ff7030'}); }
-  for(let i=0;i<Math.min(8,2+size/6);i++) G.parts.push({type:'smoke',x:x+rand(-8,8),y:y+rand(-8,8),vx:rand(-12,12),vy:rand(-30,-8),life:rand(.6,1.3),maxLife:1.3,size:rand(8,16)});
-  if(sfxVol(x,y)>0){ sfx(size>=30?'bigboom':'boom',x,y); if(size>30) G.shake=Math.min(8,G.shake+size/12); }
+  const big=size>=22;
+  if(fxOn(x,y)){
+    G.parts.push({type:'flash',x,y,life:.16,maxLife:.16,size:size*1.05,color:'#fff6d2'});
+    G.parts.push({type:'flash',x:x+rand(-size*.2,size*.2),y:y+rand(-size*.2,size*.2),life:.30,maxLife:.30,size:size*0.78,color:'#ff9a2e'});
+    G.parts.push({type:'flash',x:x+rand(-size*.25,size*.25),y:y+rand(-size*.25,size*.25),life:.44,maxLife:.44,size:size*0.52,color:'#e0521c'});
+    G.parts.push({type:'ring',x,y,life:.3,maxLife:.3,size:size*1.3});
+    const nsp=Math.min(18,Math.round(4+size/3.5));
+    for(let i=0;i<nsp&&G.parts.length<PART_CAP;i++){ const a=rand(0,TAU),v=rand(30,150);
+      G.parts.push({type:'spark',x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.2,.5),maxLife:.5,color:Math.random()<.5?'#ffb340':'#ff7030'}); }
+    const nd=Math.min(10,Math.round(2+size/6));
+    for(let i=0;i<nd&&G.parts.length<PART_CAP;i++){ const a=rand(0,TAU),v=rand(45,155);
+      G.parts.push({type:'debris',x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.4,.9),maxLife:.9,
+        size:rand(1.6,3.4),rot:rand(0,TAU),vr:rand(-9,9),color:Math.random()<.5?'#3a332a':'#5a5048'}); }
+    const ns=Math.min(12,Math.round(3+size/4));
+    for(let i=0;i<ns&&G.parts.length<PART_CAP;i++){ const t=i/ns;
+      G.parts.push({type:'smoke',x:x+rand(-size*.28,size*.28),y:y+rand(-4,4)-t*size*0.45,vx:rand(-7,7),vy:-14-t*26,
+        life:rand(.9,1.9)+t*0.6,maxLife:2.6,size:rand(5,10)+t*4,color:t<0.5?'#2a2622':'#4a443c'}); }
+  }
+  if(big) addScorch(x,y,Math.min(46,size*0.9));   // decal persists even if it happened off-screen
+  if(sfxVol(x,y)>0){ sfx(size>=30?'bigboom':'boom',x,y); if(big) G.shake=Math.min(2,G.shake+size/50); }
   ambBattle();   // feed the ambient battle-intensity sublayer
 }
 const PART_CAP=600;   // WS-6.4 hard cap on particles; oldest cosmetic ones drop first
 function updateParts(dt){
+  for(const d of scorch) if(d.t>0) d.t-=dt;   // WS-C4 decals fade over SCORCH_LIFE
   for(const p of G.parts){
     p.life-=dt;
     if(p.vx!==undefined){ p.x+=p.vx*dt; p.y+=p.vy*dt; }
     if(p.type==='text') p.y-=22*dt;
     if(p.type==='smoke') p.size+=10*dt;
+    if(p.type==='debris'){ p.rot+=p.vr*dt; p.vx*=(1-2.2*dt); p.vy*=(1-2.2*dt); }   // WS-C7 shards tumble + drag out
   }
   G.parts=G.parts.filter(p=>p.life>0);
   // enforce the cap: drop oldest cosmetic particles (keep informational 'text' floaters)
@@ -1565,7 +2160,9 @@ function updateBuild(u,dt){
   u.face=angLerp(u.face,Math.atan2(b.y-u.y,b.x-u.x),dt*8);
   const rate=lowPower(u.owner)?(facOf(u.owner).key==='USA'?FACTION_MODS.USA.lowPowerRate:0.5):1;
   b.prog+=dt*rate;
-  b.hp=Math.min(b.maxHp, b.maxHp*0.1 + b.maxHp*0.9*clamp(b.prog/b.def.t,0,1));
+  // WS-D2: hp = progress ramp MINUS banked battle damage, so a site under fire can die.
+  b.hp=Math.min(b.maxHp, b.maxHp*0.1 + b.maxHp*0.9*clamp(b.prog/b.def.t,0,1)) - (b.dmg||0);
+  if(b.hp<=0){ killEnt(b,null); u.order={t:'idle'}; u.dest=null; u.path=null; return; }
   if(Math.random()<dt*14) G.parts.push({type:'spark',x:b.x+rand(-b.r,b.r),y:b.y+rand(-b.r,b.r),vx:rand(-22,22),vy:rand(-45,-12),life:.4,maxLife:.4,color:'#ffd070'});
 }
 function updateDemolish(u,dt){
@@ -1689,9 +2286,93 @@ function aiPlace(def){
   }
   return false;
 }
+/* WS-B4 helpers — all read AI_STYLE, none read DIFFS. */
+function wpick(list,wts){ let s=0; for(const w of wts) s+=w; if(s<=0) return null;
+  let r=Math.random()*s; for(let i=0;i<list.length;i++){ r-=wts[i]; if(r<=0) return list[i]; }
+  return list[list.length-1]; }
+function aiUnitWeight(u,st){
+  let w=st.src[u.src]; if(w==null) w=1;
+  if(st.costBias==='elite') w*= u.cost>=900?2.2:u.cost>=600?1:0.35;   // Coalition buys the expensive end
+  else if(st.costBias==='cheap') w*= u.cost<=400?2.2:u.cost<=900?1:0.5;
+  if(st.armorBias&&u.ar==='heavy') w*=st.armorBias;                    // Pact wants ground armour
+  return Math.max(0,w);
+}
+function aiWantList(f,st){
+  const eco=f.buildings.some(b=>b.k==='air')?'air':'market';
+  if(st.name==='elite-air')    return [['supply',1],['barracks',1],['factory',1],[eco,1],['training',1],['def',2],['factory',2],['def',4],['supply',2],['barracks',2],['def',6]];
+  if(st.name==='mass-armor')   return [['supply',1],['barracks',1],['factory',1],['def',2],['barracks',2],['factory',2],['def',4],['training',1],[eco,1],['supply',2],['def',6]];
+  return [['supply',1],['barracks',1],['factory',1],['def',2],[eco,1],['supply',2],['training',1],['def',4],['barracks',2],['factory',2],['def',6]];
+}
+// Syndicate raid doctrine: harvesters first, else the player structure furthest from
+// any player defensive building (an undefended expansion). Never a wall (strikeTargets).
+function aiRaidTarget(){
+  const harv=G.units.filter(u=>u.owner===0&&!u.dead&&u.def.harv);
+  if(harv.length) return pick(harv);
+  const pool=strikeTargets(0); if(!pool.length) return null;
+  const defs=G.buildings.filter(b=>b.owner===0&&!b.dead&&b.def.w);
+  if(!defs.length) return pick(pool);
+  let best=null,bs=-1;
+  for(const b of pool){ let d=1e9; for(const q of defs) d=Math.min(d,eDist(b,q)); if(d>bs){bs=d;best=b;} }
+  return best;
+}
+// centroid of the biggest blob of that owner's units (offensive power targeting)
+function aiCluster(owner){
+  const list=G.units.filter(u=>u.owner===owner&&!u.dead);
+  if(!list.length) return null;
+  const step=Math.max(1,Math.ceil(list.length/80));
+  let best=null,bn=0;
+  for(let i=0;i<list.length;i+=step){ const a=list[i]; let n=0,sx=0,sy=0;
+    for(const b of list){ if(dist2(a.x,a.y,b.x,b.y)<180){ n++; sx+=b.x; sy+=b.y; } }
+    if(n>bn){ bn=n; best={x:sx/n,y:sy/n,n}; } }
+  return best;
+}
+/* WS-B2 AI usage: spend the charge as soon as it exists, on a sensible target —
+   offensive powers at the biggest player blob (fallback: a real structure, never a
+   wall), buffs on our own army, minefield on our own approach lane. */
+function aiCastPower(){
+  const list=POWER_LIST(1); if(!list.length) return false;
+  const ps=G.powers[1];
+  const army=G.units.filter(u=>u.owner===1&&!u.dead&&!u.def.harv);
+  const hurt=G.units.filter(u=>u.owner===1&&!u.dead&&u.hp<u.maxHp*0.7).length;
+  const cluster=aiCluster(0);
+  const home=myBuildings(1,'hq')[0]||myBuildings(1)[0];
+  const order=list.slice();
+  const li=order.findIndex(p=>p.k===ps.last);            // rotate past the last one used
+  if(li>=0) order.push(...order.splice(0,li+1));
+  for(const P of order){
+    if(P.tg==='self'){
+      if(P.k==='surgeons'&&hurt<3) continue;
+      if(P.k==='rally'&&army.length<4) continue;
+      if(P.k==='bounty'&&army.length<3) continue;
+      if(castPower(1,P.k,0,0,null)) return true;
+      continue;
+    }
+    let tx=null,ty=null,sel=null;
+    if(P.k==='minefield'){
+      if(!home) continue;
+      const dx=P_BASE.tx-A_BASE.tx, dy=P_BASE.ty-A_BASE.ty, dl=Math.hypot(dx,dy)||1;
+      tx=home.x+dx/dl*TILE*5; ty=home.y+dy/dl*TILE*5;
+    } else if(P.k==='tunnel'){
+      const pool=strikeTargets(0); if(!pool.length||army.length<3) continue;
+      const t=pick(pool); tx=t.x+rand(-130,130); ty=t.y+rand(-130,130);
+      sel=army.filter(u=>!u.air).slice(0,P.max||6); if(!sel.length) continue;
+    } else if(P.k==='paradrop'||P.k==='ambush'){
+      const pool=strikeTargets(0); if(!pool.length) continue;
+      const t=pick(pool); tx=t.x+rand(-90,90); ty=t.y+rand(-90,90);
+    } else {
+      if(cluster&&cluster.n>=3){ tx=cluster.x; ty=cluster.y; }
+      else { const pool=strikeTargets(0); if(!pool.length) continue;
+        const t=pick(pool); tx=t.x+rand(-40,40); ty=t.y+rand(-40,40); }
+    }
+    tx=clamp(tx,20,WW-20); ty=clamp(ty,20,WH-20);
+    if(castPower(1,P.k,tx,ty,sel)) return true;
+  }
+  return false;
+}
 function aiTick(){
-  const f=G.aFac, diff=G.diff;
+  const f=G.aFac, diff=G.diff, st=aiStyle();
   if(!myBuildings(1).length) return;
+  if(powerReady(1)) aiCastPower();                       // WS-B2
   // dozers (required to build; keep ~2 — GLA builds with its workers)
   const dozDef=f.units.find(u=>u.builder&&!u.harv);
   if(dozDef){ const dozN=G.units.filter(u=>u.owner===1&&!u.dead&&u.def.builder).length;
@@ -1703,40 +2384,61 @@ function aiTick(){
   const harvDef=f.units.find(u=>u.harv);
   const harvN=G.units.filter(u=>u.owner===1&&!u.dead&&u.def.harv).length;
   if(harvN<3&&hasDone(1,'supply')&&G.aiMoney>harvDef.cost+400) queueUnit(1,harvDef);
-  // build order
+  // build order (WS-B4: order + cash cushion come from the style)
   const superB=f.buildings.find(b=>b.super), techK=superB&&superB.req;
-  const wantList=[['supply',1],['barracks',1],['factory',1],['def',2],['training',1],
-    [f.buildings.some(b=>b.k==='air')?'air':'market',1],['def',4],['factory',2],['barracks',2],['supply',2],['def',6]];
+  const wantList=aiWantList(f,st);
   if(superB){ wantList.push([techK,1],[superB.k,1]); }   // tech + superweapon built last
   for(const [k,want] of wantList){
     const def=f.buildings.find(b=>b.k===k); if(!def) continue;
     if(def.req&&!hasDone(1,def.req)) continue;
-    if(myBuildings(1,k).length<want){ if(G.aiMoney>def.cost+300) aiPlace(def); break; }
+    const have=myBuildings(1,k).length;
+    if(have<want){
+      // replacing something we already had once is a REBUILD (cheap for the Syndicate);
+      // reaching for the next rung of the tree pays the tech cushion.
+      const cushion=300*(have>0?st.rebuild:st.techCushion);
+      if(G.aiMoney>def.cost+cushion) aiPlace(def);
+      break;
+    }
   }
   // buy unit perks at the training facility
   if(hasDone(1,'training')&&G.time>G.ai.perkCD&&G.aiMoney>2600){
     const buyable=PERKS.filter(p=>perkLvl(1,p.k)<p.max&&G.aiMoney>=perkPrice(p,1)+1500);
     if(buyable.length){ buyPerk(1,pick(buyable).k); G.ai.perkCD=G.time+22; }
   }
-  // unit production
+  // unit production (WS-B4: composition is the style's, not a fixed src weighting)
   let tries=2;
   while(tries-->0&&G.aiMoney>1800){
     const opts=f.units.filter(u=>!u.harv&&u.cost<=G.aiMoney&&G.buildings.some(b=>b.owner===1&&!b.dead&&b.done&&b.def.trains===u.src&&b.queue.length<3));
     if(!opts.length) break;
-    const weighted=[]; for(const u of opts){ const w=u.src==='factory'?3:(u.src==='air'?1:2); for(let i=0;i<w;i++) weighted.push(u); }
-    if(!queueUnit(1,pick(weighted))) break;
+    const chosen=wpick(opts,opts.map(u=>aiUnitWeight(u,st)));
+    if(!chosen||!queueUnit(1,chosen)) break;
+  }
+  // WS-B4 Syndicate: don't feed a losing head-on fight — pull attackers back home
+  if(st.retreat>0){
+    const mine=G.units.filter(u=>u.owner===1&&!u.dead&&!u.def.harv);
+    const theirs=G.units.filter(u=>u.owner===0&&!u.dead&&!u.def.harv);
+    const mv=mine.reduce((s,u)=>s+u.def.cost,0), tv=theirs.reduce((s,u)=>s+u.def.cost,0);
+    const home=myBuildings(1,'hq')[0]||myBuildings(1)[0];
+    if(home&&tv>0&&mv<tv*st.retreat){
+      for(const u of mine) if(u.order.t==='amove'&&dist2(u.x,u.y,home.x,home.y)>420){
+        u.order={t:'amove',x:home.x+rand(-90,90),y:home.y+rand(-90,90)}; u.dest=null; u.tmpTg=null; }
+      G.ai.nextWave=Math.max(G.ai.nextWave,G.time+20);
+      return;
+    }
   }
   // attack wave (held back during the early-game grace period)
   if(G.time<diff.grace) return;
   const idleArmy=G.units.filter(u=>u.owner===1&&!u.dead&&!u.def.harv&&(u.order.t==='idle'));
   const value=idleArmy.reduce((s,u)=>s+u.def.cost,0);
+  const need=diff.wave*st.waveMul;                        // WS-B4: difficulty × style
   const due=G.time>G.ai.nextWave;
-  if(value>=diff.wave||(due&&value>=diff.wave*0.45&&idleArmy.length>=4)){
-    const targets=myBuildings(0);
-    if(targets.length){
-      const tg=pick(targets);
+  if(value>=need||(due&&value>=need*0.45&&idleArmy.length>=4)){
+    // WS-D6: don't send a whole wave at a wall segment. WS-B4: the Syndicate raids.
+    const tg=(st.raid>0&&Math.random()<st.raid)?aiRaidTarget():(strikeTargets(0).length?pick(strikeTargets(0)):null);
+    if(tg){
       for(const u of idleArmy){ u.order={t:'amove',x:tg.x+rand(-80,80),y:tg.y+rand(-80,80)}; u.dest=null; u.tmpTg=null; }
       G.ai.nextWave=G.time+diff.interval;
+      G.ai.lastWave={n:idleArmy.length, value, style:st.name, tg:(tg.kind==='unit'?('unit:'+tg.def.k):('bld:'+tg.def.k)), t:Math.round(G.time)};
     }
   } else if(due) G.ai.nextWave=G.time+25;
 }
@@ -1756,6 +2458,34 @@ function updateSwBtn(){
     if(swTargeting){ swTargeting=false; canvas.style.cursor=''; }
   }
 }
+/* ================= WS-D5 INPUT MODE =================
+   Five flags used to be written from a dozen places, so two could be armed at once and
+   Powers needed a sixth. They are still what the handlers and the renderer READ, but
+   only enterMode/exitMode WRITE them — arming any mode now disarms the other four.
+   Modes: 'place' (G.placing/+G.wallDrag) · 'amove' · 'super' (swTargeting) ·
+          'power' (G.powerAim) · 'none'.  touch.mode stays a per-gesture sub-state. */
+function inputMode(){ return G.placing?'place':G.amoveMode?'amove':swTargeting?'super':G.powerAim?'power':'none'; }
+function exitMode(){
+  G.placing=null; G.wallDrag=null; G.amoveMode=false; swTargeting=false; G.powerAim=null;
+  if(canvas) canvas.style.cursor='';
+  syncMobileBtns(); updateSwBtn(); updatePowerBar();
+}
+function enterMode(m,data){
+  exitMode();
+  if(m==='place') G.placing=data;
+  else if(m==='amove') G.amoveMode=true;
+  else if(m==='super'){ swTargeting=true; canvas.style.cursor='crosshair'; }
+  else if(m==='power'){ G.powerAim=data; canvas.style.cursor='crosshair'; }
+  syncMobileBtns(); updateSwBtn(); updatePowerBar();
+}
+// commit an armed point-target power at (wx,wy); always leaves targeting mode
+function tryCastAimed(wx,wy){
+  const P=G.powerAim; if(!P){ return false; }
+  const ok=castPower(0,P.k,wx,wy,G.sel.slice());
+  if(ok) sfx('click'); else if(alertReady('deny',0.3)) sfx('deny');
+  exitMode();
+  return ok;
+}
 const IS_TOUCH = (matchMedia('(pointer:coarse)').matches) || ('ontouchstart' in window) || navigator.maxTouchPoints>0;
 let mobileLayout=false;
 function computeLayout(){
@@ -1764,7 +2494,18 @@ function computeLayout(){
 }
 function uiSidebar(){ return mobileLayout?0:SIDEBAR; }
 function setDrawer(open){ document.getElementById('sidebar').classList.toggle('open',open); }
-function resize(){ canvas.width=innerWidth; canvas.height=innerHeight; computeLayout();
+/* WS-D3 devicePixelRatio: the backing store is CSS px x DPR (capped at 2 for fill-rate),
+   the 2D context is pre-scaled by DPR, and ALL game math stays in CSS px. Read the
+   viewport with viewW()/viewH() — never canvas.width/height — since those are device px.
+   (Setting canvas.width resets the transform, so the manual-size render trick used by the
+   headless harnesses still works: it just renders at DPR 1.) */
+let DPR=1;
+function viewW(){ return canvas.width/DPR; }
+function viewH(){ return canvas.height/DPR; }
+function resize(){ DPR=Math.min(2,Math.max(1,window.devicePixelRatio||1));
+  canvas.width=Math.round(innerWidth*DPR); canvas.height=Math.round(innerHeight*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  computeLayout();
   if(G.state==='play'){ G.cam.x=clamp(G.cam.x,0,Math.max(0,WW-innerWidth+uiSidebar())); G.cam.y=clamp(G.cam.y,0,Math.max(0,WH-innerHeight+TOPBAR)); } }
 computeLayout();
 addEventListener('resize',resize); resize();
@@ -1860,14 +2601,13 @@ canvas.addEventListener('mousedown',e=>{
       const def=G.placing;
       if(def.wall){ const wtx=Math.floor(w.x/TILE), wty=Math.floor(w.y/TILE); G.wallDrag={tx0:wtx,ty0:wty,tx1:wtx,ty1:wty}; return; }
       const tx=Math.floor(w.x/TILE-def.size/2+0.5), ty=Math.floor(w.y/TILE-def.size/2+0.5);
-      if(tryPlaceAt(def,tx,ty,0)){ sfx('click'); if(!e.shiftKey) G.placing=null; } else if(alertReady('deny',0.3)) sfx('deny');
+      if(tryPlaceAt(def,tx,ty,0)){ sfx('click'); if(!e.shiftKey) exitMode(); } else if(alertReady('deny',0.3)) sfx('deny');
       return;
     }
-    if(G.amoveMode){ issueAMove(w.x,w.y); G.amoveMode=false; return; }
+    if(G.amoveMode){ issueAMove(w.x,w.y); exitMode(); return; }
     G.drag={x0:e.clientX,y0:e.clientY,x1:e.clientX,y1:e.clientY,moved:false};
   } else if(e.button===2){
-    if(G.placing){ G.placing=null; G.wallDrag=null; return; }
-    if(G.amoveMode){ G.amoveMode=false; return; }
+    if(inputMode()!=='none'){ exitMode(); return; }   // WS-D5: right-click cancels whatever is armed
     issueCommand(w.x,w.y);
   } else if(e.button===1){
     mmDragging=true; mmLastX=e.clientX; mmLastY=e.clientY;
@@ -1887,7 +2627,7 @@ canvas.addEventListener('mousemove',e=>{
 });
 addEventListener('mouseup',e=>{
   if(e.button===1){ mmDragging=false; return; }
-  if(e.button===0&&G.wallDrag){ commitWallLine(); G.wallDrag=null; if(!e.shiftKey) G.placing=null; sfx('click'); return; }
+  if(e.button===0&&G.wallDrag){ commitWallLine(); G.wallDrag=null; if(!e.shiftKey) exitMode(); sfx('click'); return; }
   if(e.button!==0||!G.drag) return;
   const d=G.drag; G.drag=null;
   if(G.state!=='play') return;
@@ -1896,10 +2636,11 @@ addEventListener('mouseup',e=>{
     selectRect(a.x,a.y,b.x,b.y,e.shiftKey);
   } else {
     const w=toWorld(e.clientX,e.clientY);
+    if(G.powerAim){ tryCastAimed(w.x,w.y); return; }   // WS-B2 targeting mode
     if(swTargeting){
       const b=G.buildings.find(b=>b.owner===0&&!b.dead&&b.done&&b.def.super&&b.superT<=0);
       if(b){ fireSuper(b,w.x,w.y); G.parts.push({type:'ring',x:w.x,y:w.y,life:.6,maxLife:.6,size:46,color:'#ff5566'}); sfx('click'); }
-      swTargeting=false; canvas.style.cursor=''; updateSwBtn(); return;
+      exitMode(); return;
     }
     const ent=entAt(w.x,w.y);
     if(!e.shiftKey) clearSel();
@@ -1972,6 +2713,7 @@ canvas.addEventListener('touchstart',e=>{
   G.mouse.sx=t.clientX; G.mouse.sy=t.clientY;
   if(G.placing){ touch.mode='place'; return; }
   if(G.amoveMode){ touch.mode='amove'; return; }
+  if(G.powerAim){ touch.mode='power'; return; }
   touch.mode='pending';
   clearTimeout(touch.lp);
   touch.lp=setTimeout(()=>{
@@ -2010,17 +2752,19 @@ function endTouch(e){
   G.drag=null;
   if(mode==='pan') return;
   if(mode==='place'){ const def=G.placing; if(def){ const tx=Math.floor(w.x/TILE-def.size/2+0.5), ty=Math.floor(w.y/TILE-def.size/2+0.5);
-      if(tryPlaceAt(def,tx,ty,0)){ sfx('click'); G.placing=null; } else if(alertReady('deny',0.3)) sfx('deny'); } return; }
-  if(mode==='amove'){ issueAMove(w.x,w.y); G.amoveMode=false; syncMobileBtns(); return; }
+      if(tryPlaceAt(def,tx,ty,0)){ sfx('click'); exitMode(); } else if(alertReady('deny',0.3)) sfx('deny'); } return; }
+  if(mode==='amove'){ issueAMove(w.x,w.y); exitMode(); return; }
+  if(mode==='power'){ tryCastAimed(w.x,w.y); return; }   // WS-B2
   touchTap(w.x,w.y,t.clientX,t.clientY);
 }
 canvas.addEventListener('touchend',endTouch,{passive:false});
 canvas.addEventListener('touchcancel',()=>{ touch.active=false; clearTimeout(touch.lp); G.drag=null; },{passive:false});
 function touchTap(wx,wy,sx,sy){
+  if(G.powerAim){ tryCastAimed(wx,wy); return; }   // WS-B2
   if(swTargeting){
     const b=G.buildings.find(b=>b.owner===0&&!b.dead&&b.done&&b.def.super&&b.superT<=0);
     if(b){ fireSuper(b,wx,wy); G.parts.push({type:'ring',x:wx,y:wy,life:.6,maxLife:.6,size:46,color:'#ff5566'}); sfx('click'); }
-    swTargeting=false; canvas.style.cursor=''; updateSwBtn(); return;
+    exitMode(); return;
   }
   const ent=entAt(wx,wy);
   // charged superweapon selected → tap fires it (unless tapping your own unit/building)
@@ -2049,12 +2793,11 @@ addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
   if(k==='escape'){
     if(!$('pauseScreen').classList.contains('hidden')){ closePauseMenu(); }
-    else if(G.placing){G.placing=null;G.wallDrag=null;} else if(G.amoveMode)G.amoveMode=false;
-    else if(swTargeting){swTargeting=false;canvas.style.cursor='';updateSwBtn();}
+    else if(inputMode()!=='none') exitMode();          // WS-D5: one cancel for every armed mode
     else if(G.sel.length) clearSel();
     else openPauseMenu();               // Esc with nothing to cancel → pause menu
   }
-  else if(k==='a'&&!e.ctrlKey){ if(G.sel.some(s=>s.kind==='unit'&&s.owner===0)) G.amoveMode=true; }
+  else if(k==='a'&&!e.ctrlKey){ if(G.sel.some(s=>s.kind==='unit'&&s.owner===0)) enterMode('amove'); }
   else if(k==='s'){ for(const u of G.sel) if(u.kind==='unit'&&u.owner===0){ u.order={t:'idle'}; u.dest=null; u.path=null; u.tmpTg=null; u.ax=u.x; u.ay=u.y; } }
   else if(k==='p'){ togglePauseMenu(); }
   else if(k==='m'){ toggleMute(); }
@@ -2235,9 +2978,44 @@ function drawLegs(c,u,scale,legCol){
   }
   c.restore();
 }
+/* WS-C6 ONE runtime ground shadow for every unit and aircraft. Single global light —
+   warm sun from upper-LEFT (ART_DIRECTION §2) — so every shadow is offset by the SAME
+   down-right vector and the four sprite generations sit on one ground plane. Aircraft get
+   a smaller shadow pushed much further along the light vector (reads as altitude).
+   Drawn in WORLD space, before the sprite; the vector bodies' own baked ellipses were
+   removed so nothing double-shadows. */
+const LIGHT={dx:0.60,dy:0.80};
+function unitSize(u){ const s=SPRITES[u.def.k]; return (s&&s.ready>=s.n)?s.size:Math.max(16,(u.r||10)*2); }
+function groundShadow(c,u){
+  const sz=unitSize(u);
+  let rx=sz*0.33, ry=rx*0.52, off=sz*0.11, a=0.30;
+  if(u.air){ rx=sz*0.20; ry=rx*0.55; off=sz*0.95; a=0.22; }
+  c.save(); c.globalAlpha=a; c.fillStyle='#0a0c07';
+  c.beginPath(); c.ellipse(u.x+LIGHT.dx*off, u.y+LIGHT.dy*off, rx, ry, 0,0,TAU); c.fill();
+  c.restore();
+}
+/* WS-C6 house colour: a small ownership accent that reads at gameplay zoom WITHOUT hp
+   bars — trim arc on ground units, canopy tint on aircraft, band + pennant on buildings.
+   Never a whole-sprite tint (that would destroy the faction palettes). */
+const HOUSE=o=>o===0?'#3ea6ff':'#ff4634';
+function houseAccent(c,u){
+  const col=HOUSE(u.owner), sz=unitSize(u), cls=u.def.cls;
+  c.save();
+  if(cls==='jet'||cls==='heli'){                       // canopy tint on the nose
+    const sp=SPRITES[u.def.k];
+    if(sp&&sp.ready>=sp.n) c.translate(0,-sz*0.22);     // sprites draw centred above the origin
+    c.rotate(u.face); c.globalAlpha=0.62; c.fillStyle=col;
+    c.beginPath(); c.ellipse(sz*0.15,0,sz*0.115,sz*0.075,0,0,TAU); c.fill();
+  } else {                                             // 2px trim arc on the lower hull
+    c.globalAlpha=0.92; c.strokeStyle=col; c.lineWidth=2; c.lineCap='round';
+    c.beginPath(); c.arc(0,0,sz*0.30+1.5,0.28*Math.PI,0.72*Math.PI); c.stroke();
+  }
+  c.restore();
+}
 function drawUnit(c,u){
   const f=facOf(u.owner), bc=unitColors(u.def,f), col=bc.body, dark=bc.dark, s=u.def.scale||1;
   const role=unitRole(u.def), ac=ROLE_ACCENT[role];
+  if(!u.air) groundShadow(c,u);   // WS-C6 (air shadows are drawn in their own render() pass, under the ground units)
   c.save(); c.translate(u.x,u.y);
   if(u.air){ c.translate(0,Math.sin(G.time*3+u.id)*2); }
   if(u.flash>0){ c.globalAlpha=.85; }
@@ -2265,7 +3043,7 @@ function drawUnit(c,u){
   c.save(); // ---- body (may be rotated by facing) ----
   if(cls==='inf'){
     const bodyCol = role==='bomb' ? '#c43a3a' : col;
-    c.fillStyle='rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(1,3,7,4,0,0,TAU); c.fill();
+    // (WS-C6: baked ellipse shadow removed — groundShadow() draws the one shared shadow)
     // bipedal leg cycle in unit-facing local space (body drawn after so it covers hip joints)
     drawLegs(c,u,1,dark);
     c.fillStyle=dark; c.beginPath(); c.arc(0,0,6.5,0,TAU); c.fill();
@@ -2294,8 +3072,7 @@ function drawUnit(c,u){
   } else if(cls==='tank'||cls==='truck'||cls==='art'){
     const cm = 0.9 + Math.min(0.5,(u.def.cost||500)/3000); // heavier/pricier = bigger
     c.rotate(u.face); c.scale(s*cm,s*cm);
-    c.fillStyle='rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(2,3,14,9,0,0,TAU); c.fill();
-    c.fillStyle=dark; c.fillRect(-13,-9,26,18);
+    c.fillStyle=dark; c.fillRect(-13,-9,26,18);   // WS-C6: baked ellipse shadow removed
     c.fillStyle=col; c.fillRect(-11,-7,22,14);
     if(cls==='truck'){ c.fillStyle='#222'; c.fillRect(-10,-10,20,3); c.fillRect(-10,7,20,3); }
     if(role==='cannon'){ c.fillStyle=dark; c.beginPath(); c.arc(0,0,6,0,TAU); c.fill();
@@ -2327,6 +3104,7 @@ function drawUnit(c,u){
   }
   c.restore(); // ---- end body ----
   } // end vector/sprite branch
+  houseAccent(c,u);   // WS-C6 ownership trim (arc on ground units, canopy tint on aircraft)
   if(cls==='heli'){ // spinning rotor overlay (over sprite or vector body) — the ONLY blades; heli sprites are blade-free bodies
     // hub offsets along the facing axis, in units of sprite size (chinook = twin-rotor)
     const hubs = u.def.k==='chinook' ? [-0.26,0.26] : [0];
@@ -2403,6 +3181,13 @@ function drawBuilding(c,b){
       c.save(); c.strokeStyle='rgba(255,214,90,'+pulse.toFixed(3)+')'; c.lineWidth=1; c.lineJoin='round';
       c.strokeRect(px+1.5,py+1.5,w-3,w-3); c.restore();
     }
+    // WS-C6 ownership band + pennant: readable at a glance without hp bars
+    { const hc=HOUSE(b.owner);
+      c.save(); c.globalAlpha=0.85; c.fillStyle=hc; c.fillRect(px+3,py+w-4,w-6,3);
+      c.globalAlpha=1; c.strokeStyle='rgba(18,18,14,.75)'; c.lineWidth=1.2;
+      c.beginPath(); c.moveTo(px+5,py+3); c.lineTo(px+5,py-8); c.stroke();
+      c.fillStyle=hc; c.beginPath(); c.moveTo(px+5.6,py-8); c.lineTo(px+14,py-5.6); c.lineTo(px+5.6,py-3.2); c.closePath(); c.fill();
+      c.restore(); }
     if(b.def.w){ // turret barrel
       c.strokeStyle='#222'; c.lineWidth=4;
       c.beginPath(); c.moveTo(b.x,b.y); c.lineTo(b.x+Math.cos(b.turret)*w*.55,b.y+Math.sin(b.turret)*w*.55); c.stroke();
@@ -2448,10 +3233,15 @@ function drawSupplies(c){
 function drawParts(c){
   for(const p of G.parts){
     const t=p.life/p.maxLife;
-    if(p.type==='tracer'){ c.strokeStyle=p.color; c.globalAlpha=t; c.lineWidth=1.6;
-      c.beginPath(); c.moveTo(p.x,p.y); c.lineTo(p.x2,p.y2); c.stroke(); c.globalAlpha=1; }
-    else if(p.type==='flash'){ c.fillStyle=p.color||'#fff3c0'; c.globalAlpha=t;
-      c.beginPath(); c.arc(p.x,p.y,p.size*(1.3-t*0.3),0,TAU); c.fill(); c.globalAlpha=1; }
+    if(p.type==='tracer'){ c.save(); c.globalCompositeOperation='lighter';   // WS-C7 additive-ish bright streak
+      c.strokeStyle=p.color; c.globalAlpha=t*0.7; c.lineWidth=p.w||1.6; c.lineCap='round';
+      c.beginPath(); c.moveTo(p.x,p.y); c.lineTo(p.x2,p.y2); c.stroke(); c.restore(); }
+    else if(p.type==='flash'){ c.save(); c.globalCompositeOperation='lighter';
+      c.fillStyle=p.color||'#fff3c0'; c.globalAlpha=t;
+      c.beginPath(); c.arc(p.x,p.y,p.size*(1.3-t*0.3),0,TAU); c.fill(); c.restore(); }
+    else if(p.type==='debris'){ c.save(); c.translate(p.x,p.y); c.rotate(p.rot||0);
+      c.globalAlpha=Math.min(1,t*1.5); c.fillStyle=p.color||'#3a332a';
+      c.fillRect(-p.size,-p.size*0.42,p.size*2,p.size*0.84); c.restore(); }
     else if(p.type==='ring'){ c.strokeStyle=p.color||'#ffcf70'; c.globalAlpha=t; c.lineWidth=2.5;
       c.beginPath(); c.arc(p.x,p.y,p.size*(1.6-t),0,TAU); c.stroke(); c.globalAlpha=1; }
     else if(p.type==='spark'){ c.strokeStyle=p.color||'#ffb340'; c.globalAlpha=t; c.lineWidth=2;
@@ -2466,22 +3256,40 @@ function drawParts(c){
       c.textAlign='center'; c.fillText(p.txt,p.x,p.y); c.globalAlpha=1; }
   }
 }
+/* WS-C4 map-edge vignette: four cached edge gradients in world space so the playfield
+   dissolves into the letterbox colour instead of ending on a hard black line. */
+let _vig=null;
+function drawEdgeVignette(c){
+  const D=Math.min(150,Math.max(70,TILE*3));
+  if(!_vig||_vig.w!==WW||_vig.h!==WH){
+    const mk=(x0,y0,x1,y1)=>{ const g=c.createLinearGradient(x0,y0,x1,y1);
+      g.addColorStop(0,'rgba(6,8,4,0.92)'); g.addColorStop(0.45,'rgba(6,8,4,0.34)'); g.addColorStop(1,'rgba(6,8,4,0)'); return g; };
+    _vig={w:WW,h:WH,d:D,L:mk(0,0,D,0),R:mk(WW,0,WW-D,0),T:mk(0,0,0,D),B:mk(0,WH,0,WH-D)};
+  }
+  c.fillStyle=_vig.T; c.fillRect(0,0,WW,D);
+  c.fillStyle=_vig.B; c.fillRect(0,WH-D,WW,D);
+  c.fillStyle=_vig.L; c.fillRect(0,0,D,WH);
+  c.fillStyle=_vig.R; c.fillRect(WW-D,0,D,WH);
+}
 function render(){
-  ctx.fillStyle='#060804'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#060804'; ctx.fillRect(0,0,viewW(),viewH());   // WS-D3: CSS px, ctx is DPR-scaled
   if(G.state==='menu'){ return; }
   const shx=G.shake>0?rand(-G.shake,G.shake):0, shy=G.shake>0?rand(-G.shake,G.shake):0;
   ctx.save(); ctx.translate(-Math.round(G.cam.x+shx),-Math.round(G.cam.y+shy));
   if(terrCanvas) ctx.drawImage(terrCanvas,0,0);
   // WS-2.2 water shimmer: swap the two pre-rendered pond overlays every ~0.8s
   if(waterFrames[0]){ const wf=waterFrames[(Math.floor(G.time/0.8)%2)]||waterFrames[0]; ctx.drawImage(wf,0,0); }
+  drawScorch(ctx);              // WS-C4 lingering explosion decals, under everything else
   drawSupplies(ctx);
+  drawMines(ctx);               // WS-B2 (own mines only — the enemy's are hidden)
   // visible filtering helpers
   const vis=e=>e.owner===0||(e.kind==='building'?tileExplored(e.x,e.y):tileVisible(e.x,e.y));
-  const inView=e=>e.x>G.cam.x-80&&e.x<G.cam.x+canvas.width+80&&e.y>G.cam.y-80&&e.y<G.cam.y+canvas.height+80;
+  const vwW=viewW(), vwH=viewH();
+  const inView=e=>e.x>G.cam.x-80&&e.x<G.cam.x+vwW+80&&e.y>G.cam.y-80&&e.y<G.cam.y+vwH+80;
   wallSet.clear(); for(const b of G.buildings){ if(b.def.wall&&!b.dead) wallSet.add(b.tx+','+b.ty+','+b.owner); }
   for(const b of G.buildings) if(!b.dead&&vis(b)&&inView(b)) drawBuilding(ctx,b);
-  // air shadows
-  for(const u of G.units) if(!u.dead&&u.air&&vis(u)&&inView(u)){ ctx.fillStyle='rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(u.x+8,u.y+14,10,5,0,0,TAU); ctx.fill(); }
+  // air shadows (WS-C6: same groundShadow() as ground units — one light, one ground plane)
+  for(const u of G.units) if(!u.dead&&u.air&&vis(u)&&inView(u)) groundShadow(ctx,u);
   for(const u of G.units) if(!u.dead&&!u.air&&vis(u)&&inView(u)) drawUnit(ctx,u);
   // projectiles
   for(const p of G.projs){ ctx.fillStyle='#ffd070'; ctx.beginPath(); ctx.arc(p.x,p.y,p.w.aoe?3.5:2.4,0,TAU); ctx.fill(); }
@@ -2490,6 +3298,7 @@ function render(){
   // fog
   ctx.imageSmoothingEnabled=true;
   ctx.drawImage(fogCanvas,0,0,MW,MH,0,0,WW,WH);
+  drawEdgeVignette(ctx);   // WS-C4 map edge fades dark instead of hard-cutting to black
   // selection markers + hp bars (above fog)
   for(const e of G.sel){
     if(e.dead) continue;
@@ -2531,6 +3340,15 @@ function render(){
   if(G.amoveMode){ const w=toWorld(G.mouse.sx,G.mouse.sy);
     ctx.strokeStyle='#e05545'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(w.x,w.y,12,0,TAU); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(w.x-16,w.y); ctx.lineTo(w.x+16,w.y); ctx.moveTo(w.x,w.y-16); ctx.lineTo(w.x,w.y+16); ctx.stroke(); }
+  if(G.powerAim){   // WS-B2 targeting reticle: effect radius + name, red when the spot is illegal
+    const P=G.powerAim, w=toWorld(G.mouse.sx,G.mouse.sy), R=P.aoe||60;
+    const ok=P.k!=='tunnel'||tileExplored(w.x,w.y);
+    ctx.strokeStyle=ok?'#ffe14d':'#e05545'; ctx.lineWidth=2;
+    ctx.setLineDash([7,6]); ctx.beginPath(); ctx.arc(w.x,w.y,R,0,TAU); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(w.x-18,w.y); ctx.lineTo(w.x+18,w.y); ctx.moveTo(w.x,w.y-18); ctx.lineTo(w.x,w.y+18); ctx.stroke();
+    ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+    ctx.fillStyle=ok?'#ffe14d':'#e05545'; ctx.fillText(P.n.toUpperCase(),w.x,w.y-R-5);
+  }
   ctx.restore();
   // drag box (screen space)
   if(G.drag&&G.drag.moved){
@@ -2540,6 +3358,16 @@ function render(){
   drawSuperHud(ctx);
 }
 
+/* ---- WS-B2 mines: only the owner sees their own field (plus debug reveal) ---- */
+function drawMines(c){
+  if(!G.mines.length) return;
+  for(const m of G.mines){
+    if(m.owner!==0&&!DBG.reveal) continue;
+    if(m.x<G.cam.x-30||m.x>G.cam.x+viewW()+30||m.y<G.cam.y-30||m.y>G.cam.y+viewH()+30) continue;
+    c.fillStyle='rgba(30,26,20,.85)'; c.beginPath(); c.arc(m.x,m.y,4.6,0,TAU); c.fill();
+    c.fillStyle=m.arm>0?'#8a8560':'#ff5566'; c.beginPath(); c.arc(m.x,m.y,1.9,0,TAU); c.fill();
+  }
+}
 /* ---- superweapon status HUD + alert banner (screen space) ---- */
 function drawSuperHud(c){
   if(G.state!=='play') return;
@@ -2638,7 +3466,7 @@ function mkBtn(def,isUnit){
         const idx=bl.queue.lastIndexOf(def);
         if(idx>=0){ bl.queue.splice(idx,1); if(idx===0)bl.qProg=0; addMoney(0,def.cost); sfx('click'); return; } } };
   } else {
-    b.onclick=()=>{ G.placing=(G.placing===def)?null:def; if(mobileLayout&&G.placing) setDrawer(false); sfx('click'); };
+    b.onclick=()=>{ if(G.placing===def) exitMode(); else { enterMode('place',def); if(mobileLayout) setDrawer(false); } sfx('click'); };
   }
   return b;
 }
@@ -2646,6 +3474,44 @@ function buildSidebar(){
   const bg=$('buildGrid'), ug=$('unitGrid'); bg.innerHTML=''; ug.innerHTML='';
   for(const def of G.pFac.buildings){ const b=mkBtn(def,false); bg.appendChild(b); btnRefs.build[def.k]=b; }
   for(const def of G.pFac.units){ const b=mkBtn(def,true); ug.appendChild(b); btnRefs.unit[def.k]=b; }
+  buildPowerBar();
+}
+/* ---- WS-B2 general's-powers row ---- */
+const powerRefs={};
+function buildPowerBar(){
+  const row=$('powerRow'); if(!row) return;
+  row.innerHTML=''; for(const k of Object.keys(powerRefs)) delete powerRefs[k];
+  const list=POWER_LIST(0);
+  const t=$('powerTitle'); if(t) t.classList.toggle('hidden',!list.length);
+  row.classList.toggle('hidden',!list.length);
+  for(const P of list){
+    const b=document.createElement('button'); b.className='pwbtn';
+    b.title=P.n+' — '+P.d+(P.tg==='point'?'  [click to arm, then click a target]':'  [click to activate]');
+    b.innerHTML='<span class="ic">'+P.i+'</span><span class="nm">'+P.n+'</span><span class="ring"></span><span class="cdT"></span>';
+    b.onclick=()=>onPowerBtn(P);
+    row.appendChild(b); powerRefs[P.k]=b;
+  }
+  updatePowerBar();
+}
+function onPowerBtn(P){
+  if(G.state!=='play') return;
+  if(!powerReady(0)){ if(alertReady('deny',0.3)) sfx('deny'); return; }
+  if(P.tg==='self'){ if(!castPower(0,P.k,0,0,G.sel.slice())&&alertReady('deny',0.3)) sfx('deny'); else sfx('click'); exitMode(); return; }
+  if(G.powerAim&&G.powerAim.k===P.k){ exitMode(); sfx('click'); return; }   // click again = disarm
+  enterMode('power',P); sfx('click');
+  if(mobileLayout) setDrawer(false);
+}
+function updatePowerBar(){
+  const ps=G.powers&&G.powers[0]; if(!ps) return;
+  const ready=ps.t<=0, cd=Math.max(1,powerNextCd(ps.casts)), frac=ready?0:clamp(ps.t/cd,0,1);
+  const secs=Math.max(0,Math.ceil(ps.t));
+  for(const k of Object.keys(powerRefs)){
+    const b=powerRefs[k]; if(!b) continue;
+    b.classList.toggle('rdy',ready);
+    b.classList.toggle('armed',!!G.powerAim&&G.powerAim.k===k);
+    b.querySelector('.ring').style.setProperty('--a',(frac*360).toFixed(1)+'deg');
+    b.querySelector('.cdT').textContent=ready?'READY':(Math.floor(secs/60)+':'+String(secs%60).padStart(2,'0'));
+  }
 }
 function updateHud(){
   $('tbMoney').textContent='$'+Math.floor(G.money);
@@ -2657,6 +3523,7 @@ function updateHud(){
   const lp0=lowPower(0);
   $('tbWarn').textContent=lp0?'⚠ LOW POWER':'';
   { const idleN=idleWorkers().length, ib=$('btnIdle'); if(ib){ $('tbIdleN').textContent=idleN; ib.style.opacity=idleN?'1':'.45'; } }
+  updatePowerBar();   // WS-B2 cooldown ring/timer
   for(const def of G.pFac.buildings){
     const b=btnRefs.build[def.k];
     const lock=def.req&&!hasDone(0,def.req);
@@ -2736,17 +3603,23 @@ function placeBase(owner,base,fac){
   for(let i=0;i<2;i++){ const u=createUnit(owner,rocket,(tx-1+i*2)*TILE,(ty+6)*TILE); u.ax=u.x;u.ay=u.y; }
 }
 function startGame(facKey,diffKey,mapKey,posKey){
+  resetMatchState();   // idempotent; without it any direct startGame() leaks the previous match's army (wrong-faction units on the field)
   G.lastSetup={facKey,diffKey:diffKey||'normal',mapKey:mapKey||'medium',posKey:posKey||'bl'};   // WS-6.1 for Restart
   G.perks={0:{weapons:0,armor:0,optics:0,drill:0}, 1:{weapons:0,armor:0,optics:0,drill:0}};
-  G.stats={built:0,lost:0,kills:0,razed:0}; G.ai={nextWave:90,defendCD:0,perkCD:30};
+  G.stats={built:0,lost:0,kills:0,razed:0,dmg:0,earned:0}; G.ai={nextWave:90,defendCD:0,perkCD:30};
+  G.upgrades={warCollege:false};   // WS-D2: was leaking across matches (a USA War College stayed unlocked forever)
+  G.powers=newPowers(); G.mines=[]; G.powerFx=[]; G.powerAim=null;   // WS-B2 fresh charge per match
   setMapSize(mapKey||'medium');
   setupBases(posKey||'bl');
   G.pFac=FACTIONS[facKey];
-  G.aFac=FACTIONS[pick(Object.keys(FACTIONS).filter(k=>k!==facKey))];
+  // window.FORCE_AI_FAC pins the opponent (WS-B4 personality testing); otherwise random
+  const forced=window.FORCE_AI_FAC;
+  G.aFac=(forced&&forced!==facKey&&FACTIONS[forced])?FACTIONS[forced]:FACTIONS[pick(Object.keys(FACTIONS).filter(k=>k!==facKey))];
   G.diff=DIFFS[diffKey];
   G.aiMoney=G.diff.aiStart;
   // WS-2.1 pick biome per match (temp override: window.FORCE_BIOME='steppe'|'badlands'|'desert')
   curBiome=BIOMES[window.FORCE_BIOME]||pick(Object.values(BIOMES));
+  scorch=[]; scorchPtr=0;
   genMap(); renderTerrain();
   placeBase(0,P_BASE,G.pFac);
   placeBase(1,A_BASE,G.aFac);
@@ -2759,12 +3632,14 @@ function startGame(facKey,diffKey,mapKey,posKey){
   $('startScreen').classList.add('hidden');
   $('topbar').classList.remove('hidden');
   $('sidebar').classList.remove('hidden');
-  $('helpBox').classList.remove('hidden');
-  setTimeout(()=>$('helpBox').classList.add('hidden'),14000);
   for(const k in _alertCd) delete _alertCd[k];   // fresh alarm cooldowns per match
   G._lowPowerPrev=false; G._superReadyPrev=false; _ambBattle=0;
   audioInit();                                    // ensure buses exist so the wind bed can start
   G.state='play'; G.time=0;
+  hintsStart();                                   // WS-B5 (fresh profiles only)
+  // the auto-help card and the hint overlay share the top-left corner on mobile — one or the other
+  if(!HINTS){ $('helpBox').classList.remove('hidden'); setTimeout(()=>$('helpBox').classList.add('hidden'),14000); }
+  else $('helpBox').classList.add('hidden');
 }
 /* ================= WS-6.1 PAUSE MENU ================= */
 function openPauseMenu(){
@@ -2775,6 +3650,7 @@ function openPauseMenu(){
   const v=$('pVol'); if(v) v.value=AUDIO.vol;
   const m=$('pMute'); if(m) m.checked=muted;
   const a=$('pAnnouncer'); if(a) a.checked=AUDIO.announcer;
+  const mu=$('pMusic'); if(mu) mu.checked=AUDIO.music;
   $('pLoad').disabled=!hasSave();
   $('pSaveMsg').textContent=''; $('pSaveMsg').classList.remove('err');
   $('pauseScreen').classList.remove('hidden');
@@ -2790,8 +3666,10 @@ function resetMatchState(){
   G.units=[]; G.buildings=[]; G.projs=[]; G.parts=[]; G.supplies=[]; G.pings=[];
   G.sel=[]; G.groups={}; G.placing=null; G.amoveMode=false; G.wallDrag=null;
   G.banner=null; G.shake=0; G.drag=null; nextId=1;
+  G.powers=newPowers(); G.mines=[]; G.powerFx=[]; G.powerAim=null;   // WS-B2
   swTargeting=false; if(canvas) canvas.style.cursor='';
   G.state='menu'; G.paused=false; G.time=0;
+  scorch=[]; scorchPtr=0;   // WS-C4 decals are per-match
   SGRID.map.clear();
 }
 function quitToMenu(){
@@ -2802,10 +3680,13 @@ function quitToMenu(){
   $('sidebar').classList.remove('open'); $('sidebar').classList.add('hidden');
   $('helpBox').classList.add('hidden');
   $('endScreen').classList.add('hidden');
+  hintsHide(); refreshCareerBar();
   $('startScreen').classList.remove('hidden');
 }
 /* ================= WS-6.2 SAVE / LOAD ================= */
-const SAVE_KEY='bg_save', SAVE_VER=1;
+// WS-B2 bumped v1→v2 (general's powers charge/buffs, mines, in-flight barrages).
+// parseSave hard-rejects any other version, so pre-powers saves fail closed.
+const SAVE_KEY='bg_save', AUTO_KEY='bg_autosave', SAVE_VER=2;   // WS-D2: manual slot vs autosave slot
 // base64 <-> Uint8Array (persist the terrain/block/fog arrays compactly)
 function u8ToB64(u8){ let s=''; const CH=0x8000; for(let i=0;i<u8.length;i+=CH){ s+=String.fromCharCode.apply(null,u8.subarray(i,i+CH)); } return btoa(s); }
 function b64ToU8(b64){ const s=atob(b64), u8=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u8[i]=s.charCodeAt(i); return u8; }
@@ -2819,8 +3700,10 @@ function defRef(def,owner){ // {o:owner, u|b: key}; owner tells us which faction
     if(F.units.indexOf(def)>=0) return {fk,u:def.k}; if(F.buildings.indexOf(def)>=0) return {fk,b:def.k}; }
   return null;
 }
-function resolveDef(ref){ if(!ref) return null;
-  const F = ref.fk?FACTIONS[ref.fk] : (ref.o===0?G.pFac:G.aFac);
+// fc = {pFac,aFac} lookup context; defaults to the live match (WS-D2 staging passes its own)
+function resolveDef(ref,fc){ if(!ref) return null;
+  fc=fc||G;
+  const F = ref.fk?FACTIONS[ref.fk] : (ref.o===0?fc.pFac:fc.aFac);
   if(!F) return null;
   return ref.u!=null ? F.units.find(u=>u.k===ref.u) : F.buildings.find(b=>b.k===ref.b);
 }
@@ -2828,10 +3711,21 @@ function idOf(e){ return (e&&e.id!=null)?e.id:null; }   // reference → id (or 
 function serializeOrder(o){ if(!o) return {t:'idle'};
   const r={t:o.t}; if(o.x!=null)r.x=o.x; if(o.y!=null)r.y=o.y;
   if(o.tg)r.tg=idOf(o.tg); if(o.b)r.b=idOf(o.b); return r; }
+// WS-D2 autosave size: paths are the bulk of a save. Store only the waypoints still
+// ahead of the unit, at most PATH_SAVE_MAX of them, rounded to 1dp. Over the cap we
+// store no path at all — deserialize rebuilds one from `dest` (see applySave).
+const PATH_SAVE_MAX=24, r1=n=>Math.round(n*10)/10;
+function savePath(u){
+  if(!u.path||!u.path.length) return null;
+  const rest=u.path.slice(u.pi||0);
+  if(rest.length>PATH_SAVE_MAX) return null;
+  return rest.map(p=>({x:r1(p.x),y:r1(p.y)}));
+}
 function serializeUnit(u){
+  const pth=savePath(u);
   return {id:u.id,owner:u.owner,def:defRef(u.def,u.owner),x:u.x,y:u.y,hp:u.hp,maxHp:u.maxHp,
     face:u.face,cd:u.cd,scanT:u.scanT,order:serializeOrder(u.order),tmpTg:idOf(u.tmpTg),
-    dest:u.dest?{x:u.dest.x,y:u.dest.y}:null, path:u.path?u.path.map(p=>({x:p.x,y:p.y})):null, pi:u.pi,
+    dest:u.dest?{x:r1(u.dest.x),y:r1(u.dest.y)}:null, path:pth, pi:0,   // pth is rebased to the unit's current position, so pi resets
     ax:u.ax,ay:u.ay,lastX:u.lastX,lastY:u.lastY,stuckT:u.stuckT,repathT:u.repathT,repathTg:u.repathTg,
     flash:u.flash,vet:u.vet,kills:u.kills,carry:u.carry,hphase:u.hphase,hTimer:u.hTimer,
     node:idOf(u.node),depot:idOf(u.depot),cargo:(u.cargo||[]).map(c=>c.id),
@@ -2840,7 +3734,7 @@ function serializeUnit(u){
 }
 function serializeBuilding(b){
   return {id:b.id,owner:b.owner,def:defRef(b.def,b.owner),tx:b.tx,ty:b.ty,size:b.size,x:b.x,y:b.y,r:b.r,
-    hp:b.hp,maxHp:b.maxHp,armor:b.armor,done:b.done,prog:b.prog,
+    hp:b.hp,maxHp:b.maxHp,dmg:b.dmg||0,armor:b.armor,done:b.done,prog:b.prog,
     queue:(b.queue||[]).map(d=>defRef(d,b.owner)),qProg:b.qProg,cd:b.cd,scanT:b.scanT,turret:b.turret,
     tmpTg:idOf(b.tmpTg),superT:b.superT,garrison:(b.garrison||[]).map(g=>g.id),
     rally:b.rally?{x:b.rally.x,y:b.rally.y}:null,flash:b.flash};
@@ -2859,6 +3753,10 @@ function serialize(){
     biome:curBiome.key, MW,MH,
     money:G.money, aiMoney:G.aiMoney, time:G.time, nextId,
     stats:G.stats, ai:G.ai, perks:G.perks, upgrades:G.upgrades,
+    // WS-B2 — plain-data, no entity refs
+    powers:G.powers,
+    mines:G.mines.map(m=>({owner:m.owner,x:r1(m.x),y:r1(m.y),r:m.r,dmg:m.dmg,aoe:m.aoe,arm:m.arm})),
+    powerFx:G.powerFx.map(f=>({k:f.k,owner:f.owner,x:r1(f.x),y:r1(f.y),left:f.left,step:f.step,t:f.t,rad:f.rad,dmg:f.dmg,aoe:f.aoe})),
     cam:{x:G.cam.x,y:G.cam.y},
     pBase:{tx:P_BASE.tx,ty:P_BASE.ty}, aBase:{tx:A_BASE.tx,ty:A_BASE.ty},
     terr:u8ToB64(terr), block:u8ToB64(blockGrid), fogExp:u8ToB64(fogExp), fogVis:u8ToB64(fogVis),
@@ -2872,35 +3770,34 @@ function serialize(){
   };
 }
 function diffKeyOf(d){ for(const k of Object.keys(DIFFS)) if(DIFFS[k]===d) return k; return 'normal'; }
-function deserialize(S){
-  if(!S||S.v!==SAVE_VER) throw new Error('save version mismatch');
-  resetMatchState();
-  // factions / difficulty / biome
-  G.pFac=FACTIONS[S.pFac]; G.aFac=FACTIONS[S.aFac]; G.diff=DIFFS[S.diff]||DIFFS.normal;
-  curBiome=BIOMES[S.biome]||BIOMES.desert;
-  G.lastSetup=S.setup||{facKey:S.pFac,diffKey:S.diff,mapKey:'medium',posKey:'bl'};
-  // map dims + arrays
-  setMapSize(mapKeyForDims(S.MW));    // reallocs terr/block/fog to the right size
-  MW=S.MW; MH=S.MH; WW=MW*TILE; WH=MH*TILE; MSC=216/WW;
-  terr=b64ToU8(S.terr); blockGrid=b64ToU8(S.block); fogExp=b64ToU8(S.fogExp); fogVis=b64ToU8(S.fogVis);
-  fogCanvas.width=MW; fogCanvas.height=MH;
-  pfG=new Float32Array(MW*MH); pfPar=new Int32Array(MW*MH); pfClosed=new Uint8Array(MW*MH);
-  decor=S.decor||[]; roads=S.roads||[]; waterTiles=S.waterTiles||[];
-  P_BASE={tx:S.pBase.tx,ty:S.pBase.ty}; A_BASE={tx:S.aBase.tx,ty:S.aBase.ty};
-  // scalars
-  G.money=S.money; G.aiMoney=S.aiMoney; G.time=S.time; nextId=S.nextId||1;
-  G.stats=S.stats||G.stats; G.ai=S.ai||G.ai; G.perks=S.perks||G.perks; G.upgrades=S.upgrades||G.upgrades;
-  G.cam.x=S.cam.x; G.cam.y=S.cam.y;
-  G._lowPowerPrev=!!S.lowPowerPrev; G._superReadyPrev=!!S.superReadyPrev;
-  // supplies (rebuild first so units' node ids can relink to them)
+/* WS-D2 load in two phases.
+   parseSave()  validates and materialises the ENTIRE save into a staging object using
+                only local state — it never touches G/terr/blockGrid, so a corrupt save
+                throws with the running match intact (it used to wipe, THEN fail).
+   applySave()  commits an already-validated staging object.                          */
+function parseSave(S){
+  if(!S||typeof S!=='object') throw new Error('save: not an object');
+  if(S.v!==SAVE_VER) throw new Error('save version mismatch');
+  const pFac=FACTIONS[S.pFac], aFac=FACTIONS[S.aFac];
+  if(!pFac||!aFac) throw new Error('save: unknown faction');
+  const mw=S.MW|0, mh=S.MH|0;
+  if(!(mw>0&&mh>0&&mw<=512&&mh<=512)) throw new Error('save: bad map dimensions');
+  if(!S.cam||!S.pBase||!S.aBase) throw new Error('save: missing cam/base block');
+  const fin=(v,d)=>(typeof v==='number'&&isFinite(v))?v:d;
+  let terrA,blockA,fogEA,fogVA;
+  try{ terrA=b64ToU8(S.terr); blockA=b64ToU8(S.block); fogEA=b64ToU8(S.fogExp); fogVA=b64ToU8(S.fogVis); }
+  catch(e){ throw new Error('save: grid decode failed'); }
+  const need=mw*mh;
+  for(const [n,a] of [['terr',terrA],['block',blockA],['fogExp',fogEA],['fogVis',fogVA]])
+    if(a.length!==need) throw new Error('save: '+n+' length '+a.length+', expected '+need);
+  const fc={pFac,aFac};                       // def lookup context — NOT the live match
   const byId=new Map();
-  G.supplies=(S.supplies||[]).map(s=>{ const o={id:s.id,tx:s.tx,ty:s.ty,x:s.x,y:s.y,amount:s.amount}; byId.set(s.id,o); return o; });
-  // units — first pass: construct bare objects, register by id
+  const supplies=(S.supplies||[]).map(s=>{ const o={id:s.id,tx:s.tx|0,ty:s.ty|0,x:fin(s.x,0),y:fin(s.y,0),amount:fin(s.amount,0)}; byId.set(s.id,o); return o; });
   const units=(S.units||[]).map(su=>{
-    const def=resolveDef(su.def); if(!def) return null;
-    const u={id:su.id,kind:'unit',owner:su.owner,def,x:su.x,y:su.y,hp:su.hp,maxHp:su.maxHp,
-      air:!!su.air,armor:su.armor,r:su.r,face:su.face,cd:su.cd,scanT:su.scanT,
-      order:{t:(su.order&&su.order.t)||'idle'},tmpTg:null,path:su.path||null,pi:su.pi||0,dest:su.dest||null,
+    const def=resolveDef(su.def,fc); if(!def) return null;
+    const u={id:su.id,kind:'unit',owner:su.owner===1?1:0,def,x:fin(su.x,0),y:fin(su.y,0),hp:fin(su.hp,def.hp),maxHp:fin(su.maxHp,def.hp),
+      air:!!su.air,armor:su.armor,r:fin(su.r,10),face:fin(su.face,0),cd:fin(su.cd,0),scanT:fin(su.scanT,0),
+      order:{t:(su.order&&su.order.t)||'idle'},tmpTg:null,path:Array.isArray(su.path)?su.path:null,pi:su.pi|0,dest:su.dest||null,
       ax:su.ax,ay:su.ay,lastX:su.lastX,lastY:su.lastY,stuckT:su.stuckT||0,repathT:su.repathT||0,repathTg:su.repathTg||0,
       flash:su.flash||0,dead:!!su.dead,vet:su.vet||0,kills:su.kills||0,carry:su.carry||0,
       hphase:su.hphase||'go',hTimer:su.hTimer||0,node:null,depot:null,cargo:[],
@@ -2908,18 +3805,17 @@ function deserialize(S){
       _boarded:!!su._boarded,_garrisoned:!!su._garrisoned,_raw:su};
     byId.set(u.id,u); return u;
   }).filter(Boolean);
-  // buildings — first pass
   const builds=(S.buildings||[]).map(sb=>{
-    const def=resolveDef(sb.def); if(!def) return null;
-    const b={id:sb.id,kind:'building',owner:sb.owner,def,tx:sb.tx,ty:sb.ty,size:sb.size,x:sb.x,y:sb.y,r:sb.r,
-      hp:sb.hp,maxHp:sb.maxHp,armor:sb.armor||'building',air:false,done:!!sb.done,prog:sb.prog||0,
-      queue:(sb.queue||[]).map(resolveDef).filter(Boolean),qProg:sb.qProg||0,cd:sb.cd||0,scanT:sb.scanT||0,
-      turret:sb.turret||0,tmpTg:null,superT:sb.superT||0,garrison:[],
-      rally:sb.rally||{x:sb.x,y:sb.y+60},flash:sb.flash||0,dead:false,_raw:sb};
+    const def=resolveDef(sb.def,fc); if(!def) return null;
+    const b={id:sb.id,kind:'building',owner:sb.owner===1?1:0,def,tx:sb.tx|0,ty:sb.ty|0,size:sb.size||def.size,x:fin(sb.x,0),y:fin(sb.y,0),r:fin(sb.r,TILE),
+      hp:fin(sb.hp,def.hp),maxHp:fin(sb.maxHp,def.hp),dmg:fin(sb.dmg,0),armor:sb.armor||'building',air:false,done:!!sb.done,prog:fin(sb.prog,0),
+      queue:(sb.queue||[]).map(q=>resolveDef(q,fc)).filter(Boolean),qProg:fin(sb.qProg,0),cd:fin(sb.cd,0),scanT:fin(sb.scanT,0),
+      turret:fin(sb.turret,0),tmpTg:null,superT:fin(sb.superT,0),garrison:[],
+      rally:sb.rally||{x:fin(sb.x,0),y:fin(sb.y,0)+60},flash:sb.flash||0,dead:false,_raw:sb};
     byId.set(b.id,b); return b;
   }).filter(Boolean);
-  // second pass: relink references by id
-  const ref=id=>{ if(id==null) return null; const e=byId.get(id); return (e&&!e.dead)?e:( byId.get(id)||null ); };
+  if(!units.length&&!builds.length) throw new Error('save: no resolvable units or buildings');
+  // relink references by id — still staging-only
   for(const u of units){ const su=u._raw;
     if(su.order){ const o={t:su.order.t}; if(su.order.x!=null)o.x=su.order.x; if(su.order.y!=null)o.y=su.order.y;
       if(su.order.tg!=null)o.tg=byId.get(su.order.tg)||null; if(su.order.b!=null)o.b=byId.get(su.order.b)||null; u.order=o; }
@@ -2934,13 +3830,48 @@ function deserialize(S){
     b.garrison=(sb.garrison||[]).map(id=>byId.get(id)).filter(Boolean);
     delete b._raw;
   }
-  // only free-standing units go into G.units; boarded/garrisoned ones live inside their host arrays
-  G.units=units.filter(u=>!u._boarded&&!u._garrisoned&&!u.dead);
-  G.buildings=builds;
-  // groups + selection
-  G.groups={}; for(const [k,ids] of Object.entries(S.groups||{})) G.groups[k]=ids.map(id=>byId.get(id)).filter(u=>u&&!u.dead);
-  G.sel=(S.sel||[]).map(id=>byId.get(id)).filter(e=>e&&!e.dead);
-  // rebuild derived visuals
+  const groups={}; for(const [k,ids] of Object.entries(S.groups||{})) groups[k]=(ids||[]).map(id=>byId.get(id)).filter(u=>u&&!u.dead);
+  // WS-B2 powers: normalise into fresh objects so a hand-edited save can't inject junk
+  const powers=newPowers();
+  for(const o of [0,1]){ const s=S.powers&&S.powers[o]; if(!s||typeof s!=='object') continue; const d=powers[o];
+    d.t=Math.max(0,fin(s.t,POWER_FIRST_CD)); d.casts=Math.max(0,s.casts|0);
+    d.healRate=Math.max(0,fin(s.healRate,0)); d.last=typeof s.last==='string'?s.last:null;
+    const b=s.buff||{}; for(const bk of ['heal','rally','bounty']) d.buff[bk]=Math.max(0,fin(b[bk],0)); }
+  const mines=(Array.isArray(S.mines)?S.mines:[]).filter(m=>m&&typeof m==='object').map(m=>({
+    owner:m.owner===1?1:0, x:fin(m.x,0), y:fin(m.y,0), r:fin(m.r,26), dmg:fin(m.dmg,160), aoe:fin(m.aoe,40), arm:Math.max(0,fin(m.arm,0))}));
+  const powerFx=(Array.isArray(S.powerFx)?S.powerFx:[]).filter(f=>f&&f.k==='barrage').map(f=>({
+    k:'barrage', owner:f.owner===1?1:0, x:fin(f.x,0), y:fin(f.y,0), left:Math.max(0,f.left|0),
+    step:Math.max(0.01,fin(f.step,0.33)), t:fin(f.t,0), rad:fin(f.rad,140), dmg:fin(f.dmg,55), aoe:fin(f.aoe,45)}));
+  return { S, pFac, aFac, diff:DIFFS[S.diff]||DIFFS.normal, biome:BIOMES[S.biome]||BIOMES.desert,
+    powers, mines, powerFx,
+    MW:mw, MH:mh, terr:terrA, block:blockA, fogExp:fogEA, fogVis:fogVA, supplies,
+    // only free-standing units go live; boarded/garrisoned ones live inside their host arrays
+    units:units.filter(u=>!u._boarded&&!u._garrisoned&&!u.dead), buildings:builds, groups,
+    sel:(S.sel||[]).map(id=>byId.get(id)).filter(e=>e&&!e.dead) };
+}
+function applySave(st){
+  const S=st.S;
+  resetMatchState();
+  G.pFac=st.pFac; G.aFac=st.aFac; G.diff=st.diff; curBiome=st.biome;
+  G.lastSetup=S.setup||{facKey:S.pFac,diffKey:S.diff,mapKey:'medium',posKey:'bl'};
+  setMapSize(mapKeyForDims(st.MW));    // reallocs terr/block/fog to the right size
+  MW=st.MW; MH=st.MH; WW=MW*TILE; WH=MH*TILE; MSC=216/WW;
+  terr=st.terr; blockGrid=st.block; fogExp=st.fogExp; fogVis=st.fogVis;
+  fogCanvas.width=MW; fogCanvas.height=MH;
+  pfG=new Float32Array(MW*MH); pfPar=new Int32Array(MW*MH); pfClosed=new Uint8Array(MW*MH);
+  decor=S.decor||[]; roads=S.roads||[]; waterTiles=S.waterTiles||[];
+  P_BASE={tx:S.pBase.tx,ty:S.pBase.ty}; A_BASE={tx:S.aBase.tx,ty:S.aBase.ty};
+  G.money=S.money; G.aiMoney=S.aiMoney; G.time=S.time; nextId=S.nextId||1;
+  G.stats=S.stats||G.stats; G.ai=S.ai||G.ai; G.perks=S.perks||G.perks;
+  G.stats.dmg=G.stats.dmg||0; G.stats.earned=G.stats.earned||0;   // WS-B5 fields absent in pre-B5 saves
+  G.upgrades=Object.assign({warCollege:false},S.upgrades||{});
+  G.powers=st.powers; G.mines=st.mines; G.powerFx=st.powerFx; G.powerAim=null;   // WS-B2
+  G.cam.x=S.cam.x; G.cam.y=S.cam.y;
+  G._lowPowerPrev=!!S.lowPowerPrev; G._superReadyPrev=!!S.superReadyPrev;
+  G.supplies=st.supplies; G.units=st.units; G.buildings=st.buildings;
+  G.groups=st.groups; G.sel=st.sel;
+  // paths longer than PATH_SAVE_MAX aren't stored — rebuild one from the kept destination
+  for(const u of G.units) if(!u.air&&u.dest&&!u.path) setMove(u,u.dest.x,u.dest.y);
   renderTerrain();
   buildSidebar();
   $('tbFaction').textContent=G.pFac.name+' vs '+G.aFac.name;
@@ -2948,22 +3879,31 @@ function deserialize(S){
   updateFog();
   G.state='play'; G.paused=false;
 }
+function deserialize(S){ applySave(parseSave(S)); }
 function mapKeyForDims(n){ for(const k of Object.keys(MAP_SIZES)) if(MAP_SIZES[k]===n) return k; return 'medium'; }
 
-function hasSave(){ try{ return !!localStorage.getItem(SAVE_KEY); }catch(e){ return false; } }
-function saveMeta(){ try{ const raw=localStorage.getItem(SAVE_KEY); if(!raw) return null; const s=JSON.parse(raw); if(s.v!==SAVE_VER) return null; return s; }catch(e){ return null; } }
-function writeSave(){
+/* WS-D2 two slots: the manual slot (SAVE_KEY) is never overwritten by the 60s autosave
+   (AUTO_KEY), so an autosave in a losing position can't clobber a deliberate save.
+   Load picks whichever valid slot is newer. */
+function saveMeta(key){ try{ const raw=localStorage.getItem(key||SAVE_KEY); if(!raw) return null; const s=JSON.parse(raw); if(s.v!==SAVE_VER) return null; return s; }catch(e){ return null; } }
+function newestSave(){
+  const a=saveMeta(SAVE_KEY), b=saveMeta(AUTO_KEY);
+  if(a&&b) return (b.ts||0)>(a.ts||0)?b:a;
+  return a||b;
+}
+function hasSave(){ return !!newestSave(); }
+function writeSave(key){
   const S=serialize(); if(!S) return false;
-  try{ localStorage.setItem(SAVE_KEY,JSON.stringify(S)); return true; }
+  try{ localStorage.setItem(key||SAVE_KEY,JSON.stringify(S)); return true; }
   catch(e){ console.warn('save failed',e); return false; }
 }
 function doSaveGame(){
-  const ok=writeSave(); const m=$('pSaveMsg');
+  const ok=writeSave(SAVE_KEY); const m=$('pSaveMsg');
   if(m){ m.classList.toggle('err',!ok); m.textContent=ok?'✓ Game saved.':'Save failed (storage full?)'; }
   if(ok){ sfx('built'); $('pLoad').disabled=false; const cb=$('btnContinue'); if(cb) cb.classList.remove('hidden'); }
 }
 function loadSaveFromStorage(){
-  const s=saveMeta(); if(!s) return false;
+  const s=newestSave(); if(!s) return false;
   try{ deserialize(s); return true; }
   catch(e){ console.warn('load failed',e); return false; }
 }
@@ -2973,10 +3913,11 @@ function doLoadGame(){
   $('pauseScreen').classList.add('hidden'); $('endScreen').classList.add('hidden');
   $('startScreen').classList.add('hidden');
   $('topbar').classList.remove('hidden'); $('sidebar').classList.remove('hidden'); $('helpBox').classList.add('hidden');
+  HINTS=null; hintsHide();   // WS-B5: a loaded match has no valid hint baseline
   audioInit(); sfx('click');
 }
 let _autosaveT=0;
-function autosaveTick(dt){ _autosaveT-=dt; if(_autosaveT<=0){ _autosaveT=60; if(G.state==='play') writeSave(); } }
+function autosaveTick(dt){ _autosaveT-=dt; if(_autosaveT<=0){ _autosaveT=60; if(G.state==='play') writeSave(AUTO_KEY); } }   // WS-D2: autosave has its own slot
 
 // Restart the current match with the same faction/difficulty/map/position settings.
 function restartMatch(){
@@ -2984,17 +3925,106 @@ function restartMatch(){
   if(s) startGame(s.facKey,s.diffKey,s.mapKey,s.posKey);
   else location.reload();   // fallback if we somehow lost the setup
 }
+/* ================= WS-B5 MATCH FLOW & META =================
+   Career W/L per faction persists in localStorage; score is a single number the
+   player can chase across matches. Both are cosmetic — nothing gameplay reads them. */
+const CAREER_KEY='bg_career';
+let CAREER=(function(){ try{ const c=JSON.parse(localStorage.getItem(CAREER_KEY)||'null');
+    if(c&&c.f&&typeof c.f==='object') return {f:c.f, games:c.games|0, best:c.best|0}; }catch(e){}
+  return {f:{}, games:0, best:0}; })();
+function careerRecord(facKey,win,score){
+  const r=CAREER.f[facKey]||(CAREER.f[facKey]={w:0,l:0});
+  if(win) r.w++; else r.l++;
+  CAREER.games++; if(score>CAREER.best) CAREER.best=score;
+  try{ localStorage.setItem(CAREER_KEY,JSON.stringify(CAREER)); }catch(e){}
+}
+function careerLine(){
+  const ks=Object.keys(CAREER.f); if(!ks.length) return '';
+  let w=0,l=0; const parts=[];
+  for(const k of ks){ const r=CAREER.f[k]; w+=r.w; l+=r.l;
+    parts.push((FACTIONS[k]?FACTIONS[k].name:k)+' '+r.w+'–'+r.l); }
+  return 'CAREER '+w+'W / '+l+'L · best score '+CAREER.best+'   ·   '+parts.join('  ·  ');
+}
+function refreshCareerBar(){ const el=$('careerBar'); if(el) el.textContent=careerLine(); }
+const SCORE_DIFF={easy:0.8, normal:1, hard:1.35};
+// kills/razes/damage/economy in, losses out; winning adds a flat bonus plus a speed bonus
+// that decays to zero at the 15-minute mark. Difficulty scales the whole thing.
+function matchScore(win){
+  const s=G.stats;
+  let v = s.kills*100 + s.razed*250 + s.built*10 + Math.floor(s.dmg/10) + Math.floor(s.earned/25) - s.lost*40;
+  if(win) v += 1000 + Math.max(0, 1800 - Math.floor(G.time)*2);
+  v = Math.round(v * (SCORE_DIFF[(G.lastSetup&&G.lastSetup.diffKey)||'normal']||1));
+  return Math.max(0,v);
+}
+/* ---- first-game hint overlay (6 steps, dismissable, fresh profiles only) ---- */
+const HINT_KEY='bg_hints_done';
+let HINTS=null;
+function hintsSeen(){ try{ return localStorage.getItem(HINT_KEY)==='1'; }catch(e){ return true; } }
+function pBldCount(k){ return G.buildings.filter(b=>b.owner===0&&!b.dead&&b.done&&b.def.k===k).length; }
+function pBldTotal(){ return G.buildings.filter(b=>b.owner===0&&!b.dead&&b.done&&!b.def.wall).length; }
+function hintsHide(){ const b=$('hintBox'); if(b) b.classList.add('hidden'); }
+function hintsDismiss(){ HINTS=null; hintsHide(); try{ localStorage.setItem(HINT_KEY,'1'); }catch(e){} }
+function hintsStart(){
+  HINTS=null; hintsHide();
+  if(hintsSeen()||!G.pFac) return;
+  const gla=!G.pFac.buildings.some(b=>b.k==='power');     // GLA runs on salvage, has no power plant
+  const ecoK=gla?'supply':'power';
+  const ecoN=(G.pFac.buildings.find(b=>b.k===ecoK)||{n:'Supply Depot'}).n;
+  const base={eco:pBldCount(ecoK), bar:pBldCount('barracks'), built:G.stats.built, blds:pBldTotal()};
+  HINTS={i:0, base, steps:[
+    {t:(gla?'⛏️ Build another '+ecoN+' — salvage funds the whole war.'
+          :'⚡ Build another '+ecoN+' — power keeps production at full speed.'),
+     d:()=>pBldCount(ecoK)>base.eco},
+    {t:'🪖 Build a second Barracks — two queues train twice as fast.', d:()=>pBldCount('barracks')>base.bar},
+    {t:'🔫 Train infantry — select a Barracks, then click a unit icon in the sidebar.', d:()=>G.stats.built>base.built},
+    {t:'📦 Collect supplies — right-click a gold pile with a harvester, then let it run.', d:()=>G.stats.earned>0},
+    {t:'🗼 Expand & defend — add 4 more structures, or a defense tower on your flank.',
+     d:()=>pBldCount('def')>0||pBldTotal()>=base.blds+4},
+    {t:'💥 Destroy every enemy structure — the Headquarters is the prize.',
+     d:()=>!G.buildings.some(b=>b.owner===1&&!b.dead&&b.def.k==='hq')},
+  ]};
+  hintsRender();
+}
+function hintsRender(){
+  const box=$('hintBox'); if(!box||!HINTS) return;
+  $('hintText').textContent=HINTS.steps[HINTS.i].t;
+  $('hintStep').textContent=(HINTS.i+1)+'/'+HINTS.steps.length;
+  const dots=$('hintProg').children;
+  for(let i=0;i<dots.length;i++) dots[i].classList.toggle('on',i<HINTS.i);
+  box.classList.remove('hidden');
+}
+function hintsTick(){
+  if(!HINTS) return;
+  if(G.state!=='play'){ hintsHide(); return; }
+  let moved=false;
+  while(HINTS.i<HINTS.steps.length&&HINTS.steps[HINTS.i].d()){ HINTS.i++; moved=true; }
+  if(HINTS.i>=HINTS.steps.length){ hintsDismiss(); return; }   // all six cleared: never show again
+  if(moved){ hintsRender(); sfx('ready'); }
+}
 function endGame(win){
   if(G.state==='over') return;      // guard against double-fire
   G.state='over';
   sfx(win?'win':'lose');            // victory / defeat stinger (rows 25/26)
-  ambStop();
+  ambStop(); musicStop();
+  if(HINTS) hintsDismiss(); else hintsHide();
+  const s=G.stats, score=matchScore(win);
+  const fk=(G.lastSetup&&G.lastSetup.facKey)||(G.pFac&&G.pFac.key);
+  if(fk) careerRecord(fk,win,score);
+  refreshCareerBar();
+  const row=(a,b)=>'<tr><td>'+a+'</td><td>'+b+'</td></tr>';
+  const mm=Math.floor(G.time/60), ss=Math.floor(G.time%60);
   $('endTitle').textContent=win?'VICTORY':'DEFEAT';
   $('endTitle').style.color=win?'#7ec850':'#e05545';
-  $('endStats').innerHTML=
-    'Time: '+Math.floor(G.time/60)+'m '+Math.floor(G.time%60)+'s<br>'+
-    'Units built: '+G.stats.built+' · Units lost: '+G.stats.lost+'<br>'+
-    'Enemy units destroyed: '+G.stats.kills+' · Enemy structures razed: '+G.stats.razed;
+  $('endStats').innerHTML='<table class="statTbl">'+
+    row('Match time', mm+'m '+(ss<10?'0':'')+ss+'s')+
+    row('Units built', s.built)+
+    row('Units lost', s.lost)+
+    row('Enemy units destroyed', s.kills)+
+    row('Enemy structures razed', s.razed)+
+    row('Damage dealt', Math.round(s.dmg).toLocaleString())+
+    row('Credits earned', '$'+Math.round(s.earned).toLocaleString())+
+    '<tr class="scoreRow"><td>SCORE</td><td>'+score.toLocaleString()+'</td></tr></table>'+
+    '<div class="careerLine">'+careerLine()+'</div>';
   $('endScreen').classList.remove('hidden');
 }
 
@@ -3012,7 +4042,7 @@ function update(dt){
   }
   G.cam.x=clamp(G.cam.x,0,Math.max(0,WW-innerWidth+uiSidebar()));
   G.cam.y=clamp(G.cam.y,0,Math.max(0,WH-innerHeight+TOPBAR));
-  G.shake=Math.max(0,G.shake-dt*14);
+  G.shake=Math.max(0,G.shake-dt*25);   // WS-C7: 2px blast shake decays in ~80ms
   // AI income
   G.aiMoney+=G.diff.income*dt;
   // WS-6.4: rebuild the spatial hash once per tick; horde-count + separation both read it
@@ -3021,6 +4051,7 @@ function update(dt){
   for(const u of G.units) updateUnit(u,dt);
   for(const b of G.buildings) updateBuilding(b,dt);
   for(const p of G.projs) updateProj(p,dt);
+  powerTick(dt);   // WS-B2 charge, buffs, mines, scheduled barrages (after units have moved)
   updateParts(dt);
   G.sepT-=dt; if(G.sepT<=0){ separation(); G.sepT=0.05; }
   G.units=G.units.filter(u=>!u.dead);
@@ -3034,7 +4065,7 @@ function update(dt){
   // AI
   G.aiT-=dt; if(G.aiT<=0){ aiTick(); G.aiT=1.6; }
   // hud
-  G.uiT-=dt; if(G.uiT<=0){ updateHud(); renderMini(); updateSwBtn(); G.uiT=0.15; }
+  G.uiT-=dt; if(G.uiT<=0){ updateHud(); renderMini(); updateSwBtn(); hintsTick(); G.uiT=0.15; }
   // audio rising-edge alerts (SPEC rows 20, 23)
   { const lp=lowPower(0);
     if(lp&&!G._lowPowerPrev&&alertReady('alarmPower',12)){ sfx('alarmPower'); announce('low power'); }
@@ -3063,7 +4094,7 @@ function frame(now){
   requestAnimationFrame(frame);
   const dt=Math.min(0.05,(now-lastT)/1000); lastT=now;
   if(G.state==='play'&&!G.paused) { G.time+=dt; update(dt); }
-  if(AC) ambTick(dt);
+  if(AC){ ambTick(dt); duckTick(dt); musicTick(); }
   render();
   if(PERF.on){
     PERF.frames++; PERF.acc+=dt;
@@ -3166,10 +4197,12 @@ function dbgStressSpawn(){
   // WS-6.2 Continue-from-save on the start screen
   { const cb=$('btnContinue'); if(cb){ if(hasSave()) cb.classList.remove('hidden'); cb.onclick=()=>{ audioInit(); doLoadGame(); }; } }
   $('btnRestart').onclick=()=>{ $('endScreen').classList.add('hidden'); if(G.lastSetup) restartMatch(); else location.reload(); };
+  { const hs=$('hintSkip'); if(hs) hs.onclick=()=>{ hintsDismiss(); sfx('click'); }; }
+  refreshCareerBar();   // WS-B5 career line on the start screen
   $('btnMute').onclick=toggleMute;
   { const vs=$('volSlider'); if(vs){ vs.value=AUDIO.vol; vs.oninput=()=>{ audioInit(); setSfxVol(+vs.value); }; }
     if(muted) $('btnMute').textContent='🔇'; }
-  $('swBtn').onclick=()=>{ if(G.state!=='play') return; swTargeting=!swTargeting; canvas.style.cursor=swTargeting?'crosshair':''; updateSwBtn(); };
+  $('swBtn').onclick=()=>{ if(G.state!=='play') return; if(swTargeting) exitMode(); else enterMode('super'); };
   $('btnPause').onclick=()=>togglePauseMenu();
   $('btnIdle').onclick=()=>cycleIdleWorker();   // WS-6.3 idle-worker cycle
   // WS-6.1 pause-menu wiring
@@ -3181,15 +4214,16 @@ function dbgStressSpawn(){
   $('pAnnouncer').onchange=()=>{ AUDIO.announcer=$('pAnnouncer').checked; saveAudio();
     const ab=$('dbgAnnouncer'); if(ab){ ab.classList.toggle('on',AUDIO.announcer); ab.textContent='Announcer: '+(AUDIO.announcer?'On':'Off'); }
     if(AUDIO.announcer) announce('Announcer online'); };
+  $('pMusic').onchange=()=>{ audioInit(); setMusic($('pMusic').checked); };
   $('pSave').onclick=()=>doSaveGame();
   $('pLoad').onclick=()=>doLoadGame();
   $('btnHelp').onclick=()=>$('helpBox').classList.toggle('hidden');
   // mobile / touch wiring
   $('btnPanel').onclick=()=>{ setDrawer(!$('sidebar').classList.contains('open')); sfx('click'); };
   $('sideClose').onclick=()=>{ setDrawer(false); sfx('click'); };
-  $('btnTAttack').onclick=()=>{ if(G.sel.some(s=>s.kind==='unit'&&s.owner===0&&!s.def.harv)) G.amoveMode=!G.amoveMode; else G.amoveMode=false; syncMobileBtns(); sfx('click'); };
-  $('btnTStop').onclick=()=>{ for(const u of G.sel) if(u.kind==='unit'&&u.owner===0){ u.order={t:'idle'}; u.dest=null; u.path=null; u.tmpTg=null; u.ax=u.x; u.ay=u.y; } G.amoveMode=false; syncMobileBtns(); sfx('click'); };
-  $('btnTDesel').onclick=()=>{ clearSel(); G.amoveMode=false; G.placing=null; syncMobileBtns(); sfx('click'); };
+  $('btnTAttack').onclick=()=>{ if(!G.amoveMode&&G.sel.some(s=>s.kind==='unit'&&s.owner===0&&!s.def.harv)) enterMode('amove'); else exitMode(); sfx('click'); };
+  $('btnTStop').onclick=()=>{ for(const u of G.sel) if(u.kind==='unit'&&u.owner===0){ u.order={t:'idle'}; u.dest=null; u.path=null; u.tmpTg=null; u.ax=u.x; u.ay=u.y; } exitMode(); sfx('click'); };
+  $('btnTDesel').onclick=()=>{ clearSel(); exitMode(); sfx('click'); };
   if(IS_TOUCH){
     $('helpBox').innerHTML='<b>TOUCH CONTROLS</b><br>'+
       'Tap — select, or give an order (move / attack / harvest)<br>'+

@@ -1028,7 +1028,7 @@ function createUnit(owner,def,x,y){
 function createBuilding(owner,def,tx,ty,instant){
   const b={id:nextId++,kind:'building',owner,def,tx,ty,size:def.size,
     x:(tx+def.size/2)*TILE,y:(ty+def.size/2)*TILE,r:def.size*TILE/2,
-    hp:instant?def.hp:def.hp*0.1,maxHp:def.hp,armor:'building',air:false,
+    hp:instant?def.hp:def.hp*0.1,maxHp:def.hp,dmg:0,armor:'building',air:false,   // dmg = battle damage taken while under construction (WS-D2)
     done:!!instant,prog:instant?def.t:0,queue:[],qProg:0,cd:0,scanT:rand(0,.3),turret:0,tmpTg:null,
     superT:def.super?def.super.cd:0, garrison:[],
     rally:{x:(tx+def.size/2)*TILE,y:(ty+def.size)*TILE+50},flash:0,dead:false};
@@ -1040,6 +1040,15 @@ function freeBuildingTiles(b){
   for(let y=0;y<b.size;y++)for(let x=0;x<b.size;x++){ const tx=b.tx+x,ty=b.ty+y; if(inMap(tx,ty)) blockGrid[tIdx(tx,ty)]=terr[tIdx(tx,ty)]; }
 }
 function myBuildings(o,k){ return G.buildings.filter(b=>b.owner===o&&!b.dead&&(!k||b.def.k===k)); }
+// WS-D6: strike-target pool for AI superweapons / attack waves. Walls are $60 filler —
+// never worth a 95s nuke cooldown or a whole wave. Prefer cost>=200 structures; fall
+// back to any non-wall building, then (last resort) anything at all.
+const STRIKE_MIN_COST=200;
+function strikeTargets(o){
+  const all=myBuildings(o), solid=all.filter(b=>!b.def.wall);
+  const high=solid.filter(b=>(b.def.cost||0)>=STRIKE_MIN_COST);
+  return high.length?high:(solid.length?solid:all);
+}
 function hasDone(o,k){ return G.buildings.some(b=>b.owner===o&&!b.dead&&b.done&&b.def.k===k); }
 function powerOf(o){
   let prod=0,used=0;
@@ -1059,7 +1068,11 @@ function dealDamage(e,raw,wtype,srcEnt){
   if(e.dead) return;
   if(DBG.god&&e.owner===0) return;   // debug: player units invulnerable
   const mult=e.air?DMG[wtype].air:DMG[wtype][e.armor];
-  e.hp-=raw*mult*rand(.85,1.15); e.flash=.12;
+  const amt=raw*mult*rand(.85,1.15);
+  e.hp-=amt; e.flash=.12;
+  // WS-D2: updateBuild rewrites an unfinished site's hp from build progress every tick,
+  // so battle damage has to be banked separately or a site under fire is immortal.
+  if(e.kind==='building'&&!e.done) e.dmg=(e.dmg||0)+amt;
   if(e.kind==='unit') e.lastCombatT=G.time;                 // taking damage resets USA idle-heal timer
   if(srcEnt&&srcEnt.kind==='unit'&&!srcEnt.dead) srcEnt.lastCombatT=G.time; // dealing damage too
   if(e.hp<=0){ killEnt(e,srcEnt); return; }
@@ -1365,7 +1378,7 @@ function updateBuilding(b,dt){
   const rate=lowPower(b.owner)?(facOf(b.owner).key==='USA'?FACTION_MODS.USA.lowPowerRate:0.5):1;
   if(!b.done){
     // construction is driven by a dozer working the site (see updateBuild); just watch for completion
-    if(b.prog>=b.def.t){ b.done=true; b.hp=Math.min(b.maxHp,Math.max(b.hp,b.maxHp));
+    if(b.prog>=b.def.t){ b.done=true; b.hp=clamp(b.maxHp-(b.dmg||0),1,b.maxHp); b.dmg=0;   // WS-D2: completion no longer full-heals a shot-up site
       if(b.owner===0){ sfx('built'); announce('construction complete'); }   // row 4
       if(b.def.k==='training'&&b.owner===0&&facOf(0).key==='USA') G.upgrades.warCollege=true;
       if(b.def.super) onSuperBuilt(b);
@@ -1377,7 +1390,7 @@ function updateBuilding(b,dt){
   // superweapon: charge up; the AI fires automatically at the player's base when ready
   if(b.def.super){
     if(b.superT>0) b.superT=Math.max(0,b.superT-dt*rate);
-    else if(b.owner===1){ const tg=pick(myBuildings(0)); if(tg) fireSuper(b,tg.x+rand(-60,60),tg.y+rand(-60,60)); }
+    else if(b.owner===1){ const pool=strikeTargets(0), tg=pool.length?pick(pool):null; if(tg) fireSuper(b,tg.x+rand(-60,60),tg.y+rand(-60,60)); }   // WS-D6
   }
   if(b.queue.length){
     b.qProg+=dt*rate;
@@ -1565,7 +1578,9 @@ function updateBuild(u,dt){
   u.face=angLerp(u.face,Math.atan2(b.y-u.y,b.x-u.x),dt*8);
   const rate=lowPower(u.owner)?(facOf(u.owner).key==='USA'?FACTION_MODS.USA.lowPowerRate:0.5):1;
   b.prog+=dt*rate;
-  b.hp=Math.min(b.maxHp, b.maxHp*0.1 + b.maxHp*0.9*clamp(b.prog/b.def.t,0,1));
+  // WS-D2: hp = progress ramp MINUS banked battle damage, so a site under fire can die.
+  b.hp=Math.min(b.maxHp, b.maxHp*0.1 + b.maxHp*0.9*clamp(b.prog/b.def.t,0,1)) - (b.dmg||0);
+  if(b.hp<=0){ killEnt(b,null); u.order={t:'idle'}; u.dest=null; u.path=null; return; }
   if(Math.random()<dt*14) G.parts.push({type:'spark',x:b.x+rand(-b.r,b.r),y:b.y+rand(-b.r,b.r),vx:rand(-22,22),vy:rand(-45,-12),life:.4,maxLife:.4,color:'#ffd070'});
 }
 function updateDemolish(u,dt){
@@ -1732,7 +1747,7 @@ function aiTick(){
   const value=idleArmy.reduce((s,u)=>s+u.def.cost,0);
   const due=G.time>G.ai.nextWave;
   if(value>=diff.wave||(due&&value>=diff.wave*0.45&&idleArmy.length>=4)){
-    const targets=myBuildings(0);
+    const targets=strikeTargets(0);   // WS-D6: don't send a whole wave at a wall segment
     if(targets.length){
       const tg=pick(targets);
       for(const u of idleArmy){ u.order={t:'amove',x:tg.x+rand(-80,80),y:tg.y+rand(-80,80)}; u.dest=null; u.tmpTg=null; }
@@ -1764,7 +1779,18 @@ function computeLayout(){
 }
 function uiSidebar(){ return mobileLayout?0:SIDEBAR; }
 function setDrawer(open){ document.getElementById('sidebar').classList.toggle('open',open); }
-function resize(){ canvas.width=innerWidth; canvas.height=innerHeight; computeLayout();
+/* WS-D3 devicePixelRatio: the backing store is CSS px x DPR (capped at 2 for fill-rate),
+   the 2D context is pre-scaled by DPR, and ALL game math stays in CSS px. Read the
+   viewport with viewW()/viewH() — never canvas.width/height — since those are device px.
+   (Setting canvas.width resets the transform, so the manual-size render trick used by the
+   headless harnesses still works: it just renders at DPR 1.) */
+let DPR=1;
+function viewW(){ return canvas.width/DPR; }
+function viewH(){ return canvas.height/DPR; }
+function resize(){ DPR=Math.min(2,Math.max(1,window.devicePixelRatio||1));
+  canvas.width=Math.round(innerWidth*DPR); canvas.height=Math.round(innerHeight*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  computeLayout();
   if(G.state==='play'){ G.cam.x=clamp(G.cam.x,0,Math.max(0,WW-innerWidth+uiSidebar())); G.cam.y=clamp(G.cam.y,0,Math.max(0,WH-innerHeight+TOPBAR)); } }
 computeLayout();
 addEventListener('resize',resize); resize();
@@ -2467,7 +2493,7 @@ function drawParts(c){
   }
 }
 function render(){
-  ctx.fillStyle='#060804'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#060804'; ctx.fillRect(0,0,viewW(),viewH());   // WS-D3: CSS px, ctx is DPR-scaled
   if(G.state==='menu'){ return; }
   const shx=G.shake>0?rand(-G.shake,G.shake):0, shy=G.shake>0?rand(-G.shake,G.shake):0;
   ctx.save(); ctx.translate(-Math.round(G.cam.x+shx),-Math.round(G.cam.y+shy));
@@ -2477,7 +2503,8 @@ function render(){
   drawSupplies(ctx);
   // visible filtering helpers
   const vis=e=>e.owner===0||(e.kind==='building'?tileExplored(e.x,e.y):tileVisible(e.x,e.y));
-  const inView=e=>e.x>G.cam.x-80&&e.x<G.cam.x+canvas.width+80&&e.y>G.cam.y-80&&e.y<G.cam.y+canvas.height+80;
+  const vwW=viewW(), vwH=viewH();
+  const inView=e=>e.x>G.cam.x-80&&e.x<G.cam.x+vwW+80&&e.y>G.cam.y-80&&e.y<G.cam.y+vwH+80;
   wallSet.clear(); for(const b of G.buildings){ if(b.def.wall&&!b.dead) wallSet.add(b.tx+','+b.ty+','+b.owner); }
   for(const b of G.buildings) if(!b.dead&&vis(b)&&inView(b)) drawBuilding(ctx,b);
   // air shadows
@@ -2739,6 +2766,7 @@ function startGame(facKey,diffKey,mapKey,posKey){
   G.lastSetup={facKey,diffKey:diffKey||'normal',mapKey:mapKey||'medium',posKey:posKey||'bl'};   // WS-6.1 for Restart
   G.perks={0:{weapons:0,armor:0,optics:0,drill:0}, 1:{weapons:0,armor:0,optics:0,drill:0}};
   G.stats={built:0,lost:0,kills:0,razed:0}; G.ai={nextWave:90,defendCD:0,perkCD:30};
+  G.upgrades={warCollege:false};   // WS-D2: was leaking across matches (a USA War College stayed unlocked forever)
   setMapSize(mapKey||'medium');
   setupBases(posKey||'bl');
   G.pFac=FACTIONS[facKey];
@@ -2805,7 +2833,7 @@ function quitToMenu(){
   $('startScreen').classList.remove('hidden');
 }
 /* ================= WS-6.2 SAVE / LOAD ================= */
-const SAVE_KEY='bg_save', SAVE_VER=1;
+const SAVE_KEY='bg_save', AUTO_KEY='bg_autosave', SAVE_VER=1;   // WS-D2: manual slot vs autosave slot
 // base64 <-> Uint8Array (persist the terrain/block/fog arrays compactly)
 function u8ToB64(u8){ let s=''; const CH=0x8000; for(let i=0;i<u8.length;i+=CH){ s+=String.fromCharCode.apply(null,u8.subarray(i,i+CH)); } return btoa(s); }
 function b64ToU8(b64){ const s=atob(b64), u8=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u8[i]=s.charCodeAt(i); return u8; }
@@ -2819,8 +2847,10 @@ function defRef(def,owner){ // {o:owner, u|b: key}; owner tells us which faction
     if(F.units.indexOf(def)>=0) return {fk,u:def.k}; if(F.buildings.indexOf(def)>=0) return {fk,b:def.k}; }
   return null;
 }
-function resolveDef(ref){ if(!ref) return null;
-  const F = ref.fk?FACTIONS[ref.fk] : (ref.o===0?G.pFac:G.aFac);
+// fc = {pFac,aFac} lookup context; defaults to the live match (WS-D2 staging passes its own)
+function resolveDef(ref,fc){ if(!ref) return null;
+  fc=fc||G;
+  const F = ref.fk?FACTIONS[ref.fk] : (ref.o===0?fc.pFac:fc.aFac);
   if(!F) return null;
   return ref.u!=null ? F.units.find(u=>u.k===ref.u) : F.buildings.find(b=>b.k===ref.b);
 }
@@ -2828,10 +2858,21 @@ function idOf(e){ return (e&&e.id!=null)?e.id:null; }   // reference → id (or 
 function serializeOrder(o){ if(!o) return {t:'idle'};
   const r={t:o.t}; if(o.x!=null)r.x=o.x; if(o.y!=null)r.y=o.y;
   if(o.tg)r.tg=idOf(o.tg); if(o.b)r.b=idOf(o.b); return r; }
+// WS-D2 autosave size: paths are the bulk of a save. Store only the waypoints still
+// ahead of the unit, at most PATH_SAVE_MAX of them, rounded to 1dp. Over the cap we
+// store no path at all — deserialize rebuilds one from `dest` (see applySave).
+const PATH_SAVE_MAX=24, r1=n=>Math.round(n*10)/10;
+function savePath(u){
+  if(!u.path||!u.path.length) return null;
+  const rest=u.path.slice(u.pi||0);
+  if(rest.length>PATH_SAVE_MAX) return null;
+  return rest.map(p=>({x:r1(p.x),y:r1(p.y)}));
+}
 function serializeUnit(u){
+  const pth=savePath(u);
   return {id:u.id,owner:u.owner,def:defRef(u.def,u.owner),x:u.x,y:u.y,hp:u.hp,maxHp:u.maxHp,
     face:u.face,cd:u.cd,scanT:u.scanT,order:serializeOrder(u.order),tmpTg:idOf(u.tmpTg),
-    dest:u.dest?{x:u.dest.x,y:u.dest.y}:null, path:u.path?u.path.map(p=>({x:p.x,y:p.y})):null, pi:u.pi,
+    dest:u.dest?{x:r1(u.dest.x),y:r1(u.dest.y)}:null, path:pth, pi:0,   // pth is rebased to the unit's current position, so pi resets
     ax:u.ax,ay:u.ay,lastX:u.lastX,lastY:u.lastY,stuckT:u.stuckT,repathT:u.repathT,repathTg:u.repathTg,
     flash:u.flash,vet:u.vet,kills:u.kills,carry:u.carry,hphase:u.hphase,hTimer:u.hTimer,
     node:idOf(u.node),depot:idOf(u.depot),cargo:(u.cargo||[]).map(c=>c.id),
@@ -2840,7 +2881,7 @@ function serializeUnit(u){
 }
 function serializeBuilding(b){
   return {id:b.id,owner:b.owner,def:defRef(b.def,b.owner),tx:b.tx,ty:b.ty,size:b.size,x:b.x,y:b.y,r:b.r,
-    hp:b.hp,maxHp:b.maxHp,armor:b.armor,done:b.done,prog:b.prog,
+    hp:b.hp,maxHp:b.maxHp,dmg:b.dmg||0,armor:b.armor,done:b.done,prog:b.prog,
     queue:(b.queue||[]).map(d=>defRef(d,b.owner)),qProg:b.qProg,cd:b.cd,scanT:b.scanT,turret:b.turret,
     tmpTg:idOf(b.tmpTg),superT:b.superT,garrison:(b.garrison||[]).map(g=>g.id),
     rally:b.rally?{x:b.rally.x,y:b.rally.y}:null,flash:b.flash};
@@ -2872,35 +2913,34 @@ function serialize(){
   };
 }
 function diffKeyOf(d){ for(const k of Object.keys(DIFFS)) if(DIFFS[k]===d) return k; return 'normal'; }
-function deserialize(S){
-  if(!S||S.v!==SAVE_VER) throw new Error('save version mismatch');
-  resetMatchState();
-  // factions / difficulty / biome
-  G.pFac=FACTIONS[S.pFac]; G.aFac=FACTIONS[S.aFac]; G.diff=DIFFS[S.diff]||DIFFS.normal;
-  curBiome=BIOMES[S.biome]||BIOMES.desert;
-  G.lastSetup=S.setup||{facKey:S.pFac,diffKey:S.diff,mapKey:'medium',posKey:'bl'};
-  // map dims + arrays
-  setMapSize(mapKeyForDims(S.MW));    // reallocs terr/block/fog to the right size
-  MW=S.MW; MH=S.MH; WW=MW*TILE; WH=MH*TILE; MSC=216/WW;
-  terr=b64ToU8(S.terr); blockGrid=b64ToU8(S.block); fogExp=b64ToU8(S.fogExp); fogVis=b64ToU8(S.fogVis);
-  fogCanvas.width=MW; fogCanvas.height=MH;
-  pfG=new Float32Array(MW*MH); pfPar=new Int32Array(MW*MH); pfClosed=new Uint8Array(MW*MH);
-  decor=S.decor||[]; roads=S.roads||[]; waterTiles=S.waterTiles||[];
-  P_BASE={tx:S.pBase.tx,ty:S.pBase.ty}; A_BASE={tx:S.aBase.tx,ty:S.aBase.ty};
-  // scalars
-  G.money=S.money; G.aiMoney=S.aiMoney; G.time=S.time; nextId=S.nextId||1;
-  G.stats=S.stats||G.stats; G.ai=S.ai||G.ai; G.perks=S.perks||G.perks; G.upgrades=S.upgrades||G.upgrades;
-  G.cam.x=S.cam.x; G.cam.y=S.cam.y;
-  G._lowPowerPrev=!!S.lowPowerPrev; G._superReadyPrev=!!S.superReadyPrev;
-  // supplies (rebuild first so units' node ids can relink to them)
+/* WS-D2 load in two phases.
+   parseSave()  validates and materialises the ENTIRE save into a staging object using
+                only local state — it never touches G/terr/blockGrid, so a corrupt save
+                throws with the running match intact (it used to wipe, THEN fail).
+   applySave()  commits an already-validated staging object.                          */
+function parseSave(S){
+  if(!S||typeof S!=='object') throw new Error('save: not an object');
+  if(S.v!==SAVE_VER) throw new Error('save version mismatch');
+  const pFac=FACTIONS[S.pFac], aFac=FACTIONS[S.aFac];
+  if(!pFac||!aFac) throw new Error('save: unknown faction');
+  const mw=S.MW|0, mh=S.MH|0;
+  if(!(mw>0&&mh>0&&mw<=512&&mh<=512)) throw new Error('save: bad map dimensions');
+  if(!S.cam||!S.pBase||!S.aBase) throw new Error('save: missing cam/base block');
+  const fin=(v,d)=>(typeof v==='number'&&isFinite(v))?v:d;
+  let terrA,blockA,fogEA,fogVA;
+  try{ terrA=b64ToU8(S.terr); blockA=b64ToU8(S.block); fogEA=b64ToU8(S.fogExp); fogVA=b64ToU8(S.fogVis); }
+  catch(e){ throw new Error('save: grid decode failed'); }
+  const need=mw*mh;
+  for(const [n,a] of [['terr',terrA],['block',blockA],['fogExp',fogEA],['fogVis',fogVA]])
+    if(a.length!==need) throw new Error('save: '+n+' length '+a.length+', expected '+need);
+  const fc={pFac,aFac};                       // def lookup context — NOT the live match
   const byId=new Map();
-  G.supplies=(S.supplies||[]).map(s=>{ const o={id:s.id,tx:s.tx,ty:s.ty,x:s.x,y:s.y,amount:s.amount}; byId.set(s.id,o); return o; });
-  // units — first pass: construct bare objects, register by id
+  const supplies=(S.supplies||[]).map(s=>{ const o={id:s.id,tx:s.tx|0,ty:s.ty|0,x:fin(s.x,0),y:fin(s.y,0),amount:fin(s.amount,0)}; byId.set(s.id,o); return o; });
   const units=(S.units||[]).map(su=>{
-    const def=resolveDef(su.def); if(!def) return null;
-    const u={id:su.id,kind:'unit',owner:su.owner,def,x:su.x,y:su.y,hp:su.hp,maxHp:su.maxHp,
-      air:!!su.air,armor:su.armor,r:su.r,face:su.face,cd:su.cd,scanT:su.scanT,
-      order:{t:(su.order&&su.order.t)||'idle'},tmpTg:null,path:su.path||null,pi:su.pi||0,dest:su.dest||null,
+    const def=resolveDef(su.def,fc); if(!def) return null;
+    const u={id:su.id,kind:'unit',owner:su.owner===1?1:0,def,x:fin(su.x,0),y:fin(su.y,0),hp:fin(su.hp,def.hp),maxHp:fin(su.maxHp,def.hp),
+      air:!!su.air,armor:su.armor,r:fin(su.r,10),face:fin(su.face,0),cd:fin(su.cd,0),scanT:fin(su.scanT,0),
+      order:{t:(su.order&&su.order.t)||'idle'},tmpTg:null,path:Array.isArray(su.path)?su.path:null,pi:su.pi|0,dest:su.dest||null,
       ax:su.ax,ay:su.ay,lastX:su.lastX,lastY:su.lastY,stuckT:su.stuckT||0,repathT:su.repathT||0,repathTg:su.repathTg||0,
       flash:su.flash||0,dead:!!su.dead,vet:su.vet||0,kills:su.kills||0,carry:su.carry||0,
       hphase:su.hphase||'go',hTimer:su.hTimer||0,node:null,depot:null,cargo:[],
@@ -2908,18 +2948,17 @@ function deserialize(S){
       _boarded:!!su._boarded,_garrisoned:!!su._garrisoned,_raw:su};
     byId.set(u.id,u); return u;
   }).filter(Boolean);
-  // buildings — first pass
   const builds=(S.buildings||[]).map(sb=>{
-    const def=resolveDef(sb.def); if(!def) return null;
-    const b={id:sb.id,kind:'building',owner:sb.owner,def,tx:sb.tx,ty:sb.ty,size:sb.size,x:sb.x,y:sb.y,r:sb.r,
-      hp:sb.hp,maxHp:sb.maxHp,armor:sb.armor||'building',air:false,done:!!sb.done,prog:sb.prog||0,
-      queue:(sb.queue||[]).map(resolveDef).filter(Boolean),qProg:sb.qProg||0,cd:sb.cd||0,scanT:sb.scanT||0,
-      turret:sb.turret||0,tmpTg:null,superT:sb.superT||0,garrison:[],
-      rally:sb.rally||{x:sb.x,y:sb.y+60},flash:sb.flash||0,dead:false,_raw:sb};
+    const def=resolveDef(sb.def,fc); if(!def) return null;
+    const b={id:sb.id,kind:'building',owner:sb.owner===1?1:0,def,tx:sb.tx|0,ty:sb.ty|0,size:sb.size||def.size,x:fin(sb.x,0),y:fin(sb.y,0),r:fin(sb.r,TILE),
+      hp:fin(sb.hp,def.hp),maxHp:fin(sb.maxHp,def.hp),dmg:fin(sb.dmg,0),armor:sb.armor||'building',air:false,done:!!sb.done,prog:fin(sb.prog,0),
+      queue:(sb.queue||[]).map(q=>resolveDef(q,fc)).filter(Boolean),qProg:fin(sb.qProg,0),cd:fin(sb.cd,0),scanT:fin(sb.scanT,0),
+      turret:fin(sb.turret,0),tmpTg:null,superT:fin(sb.superT,0),garrison:[],
+      rally:sb.rally||{x:fin(sb.x,0),y:fin(sb.y,0)+60},flash:sb.flash||0,dead:false,_raw:sb};
     byId.set(b.id,b); return b;
   }).filter(Boolean);
-  // second pass: relink references by id
-  const ref=id=>{ if(id==null) return null; const e=byId.get(id); return (e&&!e.dead)?e:( byId.get(id)||null ); };
+  if(!units.length&&!builds.length) throw new Error('save: no resolvable units or buildings');
+  // relink references by id — still staging-only
   for(const u of units){ const su=u._raw;
     if(su.order){ const o={t:su.order.t}; if(su.order.x!=null)o.x=su.order.x; if(su.order.y!=null)o.y=su.order.y;
       if(su.order.tg!=null)o.tg=byId.get(su.order.tg)||null; if(su.order.b!=null)o.b=byId.get(su.order.b)||null; u.order=o; }
@@ -2934,13 +2973,34 @@ function deserialize(S){
     b.garrison=(sb.garrison||[]).map(id=>byId.get(id)).filter(Boolean);
     delete b._raw;
   }
-  // only free-standing units go into G.units; boarded/garrisoned ones live inside their host arrays
-  G.units=units.filter(u=>!u._boarded&&!u._garrisoned&&!u.dead);
-  G.buildings=builds;
-  // groups + selection
-  G.groups={}; for(const [k,ids] of Object.entries(S.groups||{})) G.groups[k]=ids.map(id=>byId.get(id)).filter(u=>u&&!u.dead);
-  G.sel=(S.sel||[]).map(id=>byId.get(id)).filter(e=>e&&!e.dead);
-  // rebuild derived visuals
+  const groups={}; for(const [k,ids] of Object.entries(S.groups||{})) groups[k]=(ids||[]).map(id=>byId.get(id)).filter(u=>u&&!u.dead);
+  return { S, pFac, aFac, diff:DIFFS[S.diff]||DIFFS.normal, biome:BIOMES[S.biome]||BIOMES.desert,
+    MW:mw, MH:mh, terr:terrA, block:blockA, fogExp:fogEA, fogVis:fogVA, supplies,
+    // only free-standing units go live; boarded/garrisoned ones live inside their host arrays
+    units:units.filter(u=>!u._boarded&&!u._garrisoned&&!u.dead), buildings:builds, groups,
+    sel:(S.sel||[]).map(id=>byId.get(id)).filter(e=>e&&!e.dead) };
+}
+function applySave(st){
+  const S=st.S;
+  resetMatchState();
+  G.pFac=st.pFac; G.aFac=st.aFac; G.diff=st.diff; curBiome=st.biome;
+  G.lastSetup=S.setup||{facKey:S.pFac,diffKey:S.diff,mapKey:'medium',posKey:'bl'};
+  setMapSize(mapKeyForDims(st.MW));    // reallocs terr/block/fog to the right size
+  MW=st.MW; MH=st.MH; WW=MW*TILE; WH=MH*TILE; MSC=216/WW;
+  terr=st.terr; blockGrid=st.block; fogExp=st.fogExp; fogVis=st.fogVis;
+  fogCanvas.width=MW; fogCanvas.height=MH;
+  pfG=new Float32Array(MW*MH); pfPar=new Int32Array(MW*MH); pfClosed=new Uint8Array(MW*MH);
+  decor=S.decor||[]; roads=S.roads||[]; waterTiles=S.waterTiles||[];
+  P_BASE={tx:S.pBase.tx,ty:S.pBase.ty}; A_BASE={tx:S.aBase.tx,ty:S.aBase.ty};
+  G.money=S.money; G.aiMoney=S.aiMoney; G.time=S.time; nextId=S.nextId||1;
+  G.stats=S.stats||G.stats; G.ai=S.ai||G.ai; G.perks=S.perks||G.perks;
+  G.upgrades=Object.assign({warCollege:false},S.upgrades||{});
+  G.cam.x=S.cam.x; G.cam.y=S.cam.y;
+  G._lowPowerPrev=!!S.lowPowerPrev; G._superReadyPrev=!!S.superReadyPrev;
+  G.supplies=st.supplies; G.units=st.units; G.buildings=st.buildings;
+  G.groups=st.groups; G.sel=st.sel;
+  // paths longer than PATH_SAVE_MAX aren't stored — rebuild one from the kept destination
+  for(const u of G.units) if(!u.air&&u.dest&&!u.path) setMove(u,u.dest.x,u.dest.y);
   renderTerrain();
   buildSidebar();
   $('tbFaction').textContent=G.pFac.name+' vs '+G.aFac.name;
@@ -2948,22 +3008,31 @@ function deserialize(S){
   updateFog();
   G.state='play'; G.paused=false;
 }
+function deserialize(S){ applySave(parseSave(S)); }
 function mapKeyForDims(n){ for(const k of Object.keys(MAP_SIZES)) if(MAP_SIZES[k]===n) return k; return 'medium'; }
 
-function hasSave(){ try{ return !!localStorage.getItem(SAVE_KEY); }catch(e){ return false; } }
-function saveMeta(){ try{ const raw=localStorage.getItem(SAVE_KEY); if(!raw) return null; const s=JSON.parse(raw); if(s.v!==SAVE_VER) return null; return s; }catch(e){ return null; } }
-function writeSave(){
+/* WS-D2 two slots: the manual slot (SAVE_KEY) is never overwritten by the 60s autosave
+   (AUTO_KEY), so an autosave in a losing position can't clobber a deliberate save.
+   Load picks whichever valid slot is newer. */
+function saveMeta(key){ try{ const raw=localStorage.getItem(key||SAVE_KEY); if(!raw) return null; const s=JSON.parse(raw); if(s.v!==SAVE_VER) return null; return s; }catch(e){ return null; } }
+function newestSave(){
+  const a=saveMeta(SAVE_KEY), b=saveMeta(AUTO_KEY);
+  if(a&&b) return (b.ts||0)>(a.ts||0)?b:a;
+  return a||b;
+}
+function hasSave(){ return !!newestSave(); }
+function writeSave(key){
   const S=serialize(); if(!S) return false;
-  try{ localStorage.setItem(SAVE_KEY,JSON.stringify(S)); return true; }
+  try{ localStorage.setItem(key||SAVE_KEY,JSON.stringify(S)); return true; }
   catch(e){ console.warn('save failed',e); return false; }
 }
 function doSaveGame(){
-  const ok=writeSave(); const m=$('pSaveMsg');
+  const ok=writeSave(SAVE_KEY); const m=$('pSaveMsg');
   if(m){ m.classList.toggle('err',!ok); m.textContent=ok?'✓ Game saved.':'Save failed (storage full?)'; }
   if(ok){ sfx('built'); $('pLoad').disabled=false; const cb=$('btnContinue'); if(cb) cb.classList.remove('hidden'); }
 }
 function loadSaveFromStorage(){
-  const s=saveMeta(); if(!s) return false;
+  const s=newestSave(); if(!s) return false;
   try{ deserialize(s); return true; }
   catch(e){ console.warn('load failed',e); return false; }
 }
@@ -2976,7 +3045,7 @@ function doLoadGame(){
   audioInit(); sfx('click');
 }
 let _autosaveT=0;
-function autosaveTick(dt){ _autosaveT-=dt; if(_autosaveT<=0){ _autosaveT=60; if(G.state==='play') writeSave(); } }
+function autosaveTick(dt){ _autosaveT-=dt; if(_autosaveT<=0){ _autosaveT=60; if(G.state==='play') writeSave(AUTO_KEY); } }   // WS-D2: autosave has its own slot
 
 // Restart the current match with the same faction/difficulty/map/position settings.
 function restartMatch(){
