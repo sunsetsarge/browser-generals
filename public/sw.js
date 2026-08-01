@@ -16,7 +16,7 @@
    this file is served directly (e.g. local `python -m http.server`). */
 
 /* @gen:cache */
-const CACHE = 'browser-generals-7eb7fbbe2894';
+const CACHE = 'browser-generals-95d606d612a8';
 /* @end:cache */
 
 // Unit sprite keys — 8 directional frames each (assets/<key>_0..7.png). Generated from UNIT_SPRITE_REG.
