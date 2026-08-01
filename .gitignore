@@ -15,3 +15,5 @@ assets/_qc_*.png
 # sprite regen staging (P5 work-in-progress)
 assets/_regen/
 assets/_regen2/
+
+# 3D proxy sources (keep .blend, skip renders which live in _regen2)
